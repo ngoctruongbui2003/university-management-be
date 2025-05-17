@@ -1,0 +1,22 @@
+services:
+  mariadb:
+    image: mariadb:11.3
+    container_name: university_mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: university
+      MYSQL_USER: uni_user
+      MYSQL_PASSWORD: uni_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - uni_network
+
+volumes:
+  mariadb_data:
+
+networks:
+  uni_network:
+    driver: bridge
