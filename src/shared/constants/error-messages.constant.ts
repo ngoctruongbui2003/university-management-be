@@ -31,4 +31,10 @@ export const ErrorMessages = {
         NOT_FOUND: 'Không tìm thấy khoa',
         EXIST: 'Tên khoa đã tồn tại',
     },
+    MAJOR: {
+        NOT_FOUND: 'Không tìm thấy ngành',
+        EXIST: 'Tên ngành đã tồn tại',
+        CODE_EXIST: 'Mã ngành đã tồn tại',
+        FACULTY_NOT_FOUND: 'Không tìm thấy khoa',
+    },
 };
