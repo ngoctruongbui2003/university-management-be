@@ -19,4 +19,12 @@ export const ErrorMessages = {
         HOST_INFO_NOT_FOUND: 'Thông tin host không được tìm thấy',
         ADMIN_VERIFY_HOST: 'Chỉ có admin có thể verify host'
     },
+    ROLE: {
+        NOT_FOUND: 'Vai trò không được tìm thấy',
+        EXIST: 'Vai trò đã tồn tại',
+    },
+    PERMISSION: {
+        NOT_FOUND: 'Quyền không được tìm thấy',
+        EXIST: 'Quyền đã tồn tại',
+    },
 };

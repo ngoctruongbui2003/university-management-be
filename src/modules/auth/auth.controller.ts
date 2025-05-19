@@ -20,7 +20,7 @@ export class AuthController {
   @Post('/register')
   @ApiOperation({ summary: 'Đăng ký người dùng' })
   async register(@Body() registerDto: CreateUserDto) {
-    return await this.authService.register(registerDto);
+    return await this.userService.register(registerDto);
   }
 
   @Public()
@@ -35,8 +35,8 @@ export class AuthController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
-  @Get('current-role')
+  @Get('current-user')
   async getCurrentRole(@Request() req) {
-    return await this.userService.findOneWithRole(req.user.id)
+    return await this.userService.findOneWithRole(req.user.userId)
   }
 }

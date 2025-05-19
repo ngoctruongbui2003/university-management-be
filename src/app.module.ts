@@ -25,7 +25,7 @@ import { PermissionModule } from './modules/permission/permission.module';
   controllers: [AppController],
   providers: [
     AppService,
-    DatabaseLoggerService
+    DatabaseLoggerService,
   ],
 })
 export class AppModule {}

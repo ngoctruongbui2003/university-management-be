@@ -5,6 +5,7 @@ import { UserModule } from '../user/user.module';
 import { JwtSharedModule } from 'src/shared/components/jwt/jwt.module';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { PermissionsGuard } from './guards/permissions.guard';
 
 @Module({
   imports: [
