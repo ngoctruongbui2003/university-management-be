@@ -27,4 +27,8 @@ export const ErrorMessages = {
         NOT_FOUND: 'Quyền không được tìm thấy',
         EXIST: 'Quyền đã tồn tại',
     },
+    FACULTY: {
+        NOT_FOUND: 'Không tìm thấy khoa',
+        EXIST: 'Tên khoa đã tồn tại',
+    },
 };

@@ -10,6 +10,7 @@ import { UserModule } from './modules/user/user.module';
 import { RoleModule } from './modules/role/role.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { AcademicYearModule } from './modules/academic-year/academic-year.module';
+import { FacultyModule } from './modules/faculty/faculty.module';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { AcademicYearModule } from './modules/academic-year/academic-year.module
     UserModule,
     RoleModule,
     PermissionModule,
-    AcademicYearModule
+    AcademicYearModule,
+    FacultyModule
   ],
   controllers: [AppController],
   providers: [
