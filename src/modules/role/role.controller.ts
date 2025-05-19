@@ -4,10 +4,11 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CreateRoleDto, UpdateRoleDto } from './dto';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 
 @Controller('role')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
   
