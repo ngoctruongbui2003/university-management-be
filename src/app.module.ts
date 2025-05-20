@@ -13,7 +13,7 @@ import { AcademicYearModule } from './modules/academic-year/academic-year.module
 import { FacultyModule } from './modules/faculty/faculty.module';
 import { GradingFormulasModule } from './modules/grading-formulas/grading-formulas.module';
 import { SubjectsModule } from './modules/subjects/subjects.module';
-
+import { CurriculumsModule } from './modules/curriculums/curriculums.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -29,6 +29,7 @@ import { SubjectsModule } from './modules/subjects/subjects.module';
     FacultyModule,
     GradingFormulasModule,
     SubjectsModule,
+    CurriculumsModule,
   ],
   controllers: [AppController],
   providers: [
