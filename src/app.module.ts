@@ -11,6 +11,7 @@ import { RoleModule } from './modules/role/role.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { AcademicYearModule } from './modules/academic-year/academic-year.module';
 import { FacultyModule } from './modules/faculty/faculty.module';
+import { GradingFormulasModule } from './modules/grading-formulas/grading-formulas.module';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { FacultyModule } from './modules/faculty/faculty.module';
     RoleModule,
     PermissionModule,
     AcademicYearModule,
-    FacultyModule
+    FacultyModule,
+    GradingFormulasModule
   ],
   controllers: [AppController],
   providers: [
