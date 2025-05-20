@@ -12,6 +12,7 @@ import { PermissionModule } from './modules/permission/permission.module';
 import { AcademicYearModule } from './modules/academic-year/academic-year.module';
 import { FacultyModule } from './modules/faculty/faculty.module';
 import { GradingFormulasModule } from './modules/grading-formulas/grading-formulas.module';
+import { SubjectsModule } from './modules/subjects/subjects.module';
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { GradingFormulasModule } from './modules/grading-formulas/grading-formul
     PermissionModule,
     AcademicYearModule,
     FacultyModule,
-    GradingFormulasModule
+    GradingFormulasModule,
+    SubjectsModule,
   ],
   controllers: [AppController],
   providers: [
