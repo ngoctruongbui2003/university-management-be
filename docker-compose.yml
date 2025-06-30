@@ -14,6 +14,26 @@ services:
     networks:
       - uni_network
 
+  server:
+    image: ngoctruongbui/university-management-system-develop:latest
+    container_name: university_server
+    ports:
+      - '8081:8081'
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: uni_user
+      DB_PASSWORD: uni_password
+      DB_NAME: university
+      JWT_SECRET: super_secret_key
+      JWT_EXPIRES_IN_ACCESS: 1d
+      JWT_EXPIRES_IN_REFRESH: 7d
+    depends_on:
+      mariadb:
+        condition: service_started
+    networks:
+      - uni_network
+
 volumes:
   mariadb_data:
 
