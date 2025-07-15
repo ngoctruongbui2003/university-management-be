@@ -9,14 +9,14 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 @ApiTags('Faculties')
 @Controller('faculties')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+// @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class FacultyController {
     constructor(private readonly facultyService: FacultyService) {}
 
     @Post()
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Tạo khoa mới' })
-    @RequirePermissions('create:faculty')
+    // @RequirePermissions('create:faculty')
     async create(@Body() createFacultyDto: CreateFacultyDto) {
         return await this.facultyService.create(createFacultyDto);
     }
@@ -24,7 +24,7 @@ export class FacultyController {
     @Get()
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Lấy danh sách khoa' })
-    @RequirePermissions('read:faculty')
+    // @RequirePermissions('read:faculty')
     async findAll() {
         return await this.facultyService.findAll();
     }
@@ -32,7 +32,7 @@ export class FacultyController {
     @Get(':id')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Lấy thông tin khoa theo ID' })
-    @RequirePermissions('read:faculty')
+    // @RequirePermissions('read:faculty')
     async findOne(@Param('id') id: string) {
         return await this.facultyService.findOne(+id);
     }
@@ -40,7 +40,7 @@ export class FacultyController {
     @Patch(':id')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Cập nhật thông tin khoa' })
-    @RequirePermissions('update:faculty')
+    // @RequirePermissions('update:faculty')
     async update(@Param('id') id: string, @Body() updateFacultyDto: UpdateFacultyDto) {
         return await this.facultyService.update(+id, updateFacultyDto);
     }
@@ -48,7 +48,7 @@ export class FacultyController {
     @Delete(':id')
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Xóa khoa' })
-    @RequirePermissions('delete:faculty')
+    // @RequirePermissions('delete:faculty')
     async remove(@Param('id') id: string) {
         await this.facultyService.remove(+id);
     }

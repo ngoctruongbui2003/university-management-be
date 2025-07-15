@@ -15,9 +15,6 @@ export class Subject {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ name: 'max_students', default: 50 })
-  maxStudents: number;
-
   @Column({ name: 'grading_formula_id' })
   gradingFormulaId: number;
 

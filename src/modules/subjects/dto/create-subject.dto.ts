@@ -17,12 +17,6 @@ export class CreateSubjectDto {
   description?: string;
 
   @IsNumber()
-  @IsOptional()
-  @Min(1)
-  @Max(200)
-  maxStudents?: number;
-
-  @IsNumber()
   @IsNotEmpty()
   gradingFormulaId: number;
 }

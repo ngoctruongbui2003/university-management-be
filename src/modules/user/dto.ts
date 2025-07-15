@@ -14,9 +14,9 @@ export class CreateUserDto {
     @MaxLength(100)
     password: string;
 
-    @ApiProperty({ example: 1, description: 'ID của vai trò (role) người dùng' })
-    @IsInt()
-    roleId: number;
+    // @ApiProperty({ example: 1, description: 'ID của vai trò (role) người dùng' })
+    // @IsInt()
+    // roleId: number;
 
     @ApiProperty({ example: 'Ngoc Truong Bui', description: 'Họ và tên đầy đủ' })
     @IsString()

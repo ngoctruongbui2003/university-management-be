@@ -7,13 +7,12 @@ import { ConfigModule } from '@nestjs/config';
 import { DatabaseLoggerService } from './shared/components/db/db.logger.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
-import { RoleModule } from './modules/role/role.module';
-import { PermissionModule } from './modules/permission/permission.module';
 import { AcademicYearModule } from './modules/academic-year/academic-year.module';
 import { FacultyModule } from './modules/faculty/faculty.module';
 import { GradingFormulasModule } from './modules/grading-formulas/grading-formulas.module';
 import { SubjectsModule } from './modules/subjects/subjects.module';
 import { CurriculumsModule } from './modules/curriculums/curriculums.module';
+import { MajorModule } from './modules/major/major.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,13 +22,12 @@ import { CurriculumsModule } from './modules/curriculums/curriculums.module';
     TypeOrmModule.forRootAsync(typeOrmConfigAsync),
     AuthModule,
     UserModule,
-    RoleModule,
-    PermissionModule,
     AcademicYearModule,
     FacultyModule,
     GradingFormulasModule,
     SubjectsModule,
     CurriculumsModule,
+    MajorModule,
   ],
   controllers: [AppController],
   providers: [

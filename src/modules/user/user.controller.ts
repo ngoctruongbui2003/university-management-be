@@ -9,14 +9,14 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 
 @Controller('user')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+// @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Tạo user mới' })
-  @RequirePermissions('manage:users')
+  // @RequirePermissions('manage:users')
   async create(@Body() createUserDto: CreateUserDto) {
     return await this.userService.register(createUserDto);
   }
@@ -24,7 +24,7 @@ export class UserController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lấy danh sách tất cả user' })
-  @RequirePermissions('read:users')
+  // @RequirePermissions('read:users')
   async findAll() {
     return await this.userService.findAll();
   }
@@ -32,7 +32,7 @@ export class UserController {
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lấy user theo ID' })
-  @RequirePermissions('read:users')
+  // @RequirePermissions('read:users')
   async findOne(@Param('id') id: string) {
     return await this.userService.findOne(+id);
   }
@@ -40,7 +40,7 @@ export class UserController {
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cập nhật thông tin user theo ID' })
-  @RequirePermissions('manage:users')
+  // @RequirePermissions('manage:users')
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return await this.userService.update(+id, updateUserDto);
   }
@@ -48,7 +48,7 @@ export class UserController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Xóa user theo ID' })
-  @RequirePermissions('manage:users')
+  // @RequirePermissions('manage:users')
   async remove(@Param('id') id: string) {
     return await this.userService.remove(+id);
   }

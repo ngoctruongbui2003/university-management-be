@@ -26,7 +26,10 @@ export class FacultyService {
     }
 
     async findOne(id: number): Promise<Faculty> {
-        const faculty = await this.facultyRepository.findOneBy({ id });
+        const faculty = await this.facultyRepository.findOne({
+            where: { id },
+            relations: ['majors']
+        });
         if (!faculty) throw new NotFoundException(ErrorMessages.FACULTY.NOT_FOUND);
         return faculty;
     }

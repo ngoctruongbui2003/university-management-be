@@ -5,7 +5,6 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { hashPassword } from 'src/shared/utils';
-import { Role } from 'src/entities/role.entity';
 import { ErrorMessages } from 'src/shared/constants/error-messages.constant';
 
 @Injectable()
@@ -13,8 +12,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-    @InjectRepository(Role)
-    private rolesRepository: Repository<Role>,
+    // @InjectRepository(Role)
+    // private rolesRepository: Repository<Role>,
   ) {}
 
   async register(registerDto: CreateUserDto) {
@@ -45,17 +44,16 @@ export class UserService {
         throw new ConflictException(ErrorMessages.USER.EXIST);
     }
 
-    const role = await this.rolesRepository.findOneBy({ id: createUserDto.roleId });
-    if (!role) {
-        throw new NotFoundException(ErrorMessages.ROLE.NOT_FOUND);
-    }
+    // const role = await this.rolesRepository.findOneBy({ id: createUserDto.roleId });
+    // if (!role) {
+    //     throw new NotFoundException(ErrorMessages.ROLE.NOT_FOUND);
+    // }
 
     const user = this.usersRepository.create({
         username: createUserDto.username,
         password: createUserDto.password,
         full_name: createUserDto.full_name,
         email: createUserDto.email,
-        role,
     });
 
     return this.usersRepository.save(user);
@@ -114,12 +112,12 @@ export class UserService {
     await this.usersRepository.delete(id);
   } 
 
-  async hasPermissions(userId: number, requiredPermissions: string[]): Promise<boolean> {
-    const user = await this.findOneWithRolePermissions(userId);
-    if (!user || !user.role || !user.role.permissions) return false;
-    const rolePermissions = user.role.permissions.map(p => p.name);
-    return requiredPermissions.every(p => rolePermissions.includes(p));
-  }
+  // async hasPermissions(userId: number, requiredPermissions: string[]): Promise<boolean> {
+  //   const user = await this.findOneWithRolePermissions(userId);
+  //   if (!user || !user.role || !user.role.permissions) return false;
+  //   const rolePermissions = user.role.permissions.map(p => p.name);
+  //   return requiredPermissions.every(p => rolePermissions.includes(p));
+  // }
 
   private async findOneWithRolePermissions(userId: number) {
     return await this.usersRepository.findOne({
@@ -131,7 +129,7 @@ export class UserService {
   async findOneWithRole(userId: number) {
     return await this.usersRepository.findOne({
         where: { id: userId },
-        relations: ['role'],
+        // relations: ['role'],
     });
 }
 }

@@ -31,15 +31,15 @@ export class RolesGuard implements CanActivate {
         // Lấy user kèm role từ DB
         const userFromDb = await this.userService.findOneWithRole(user.userId);
 
-        if (!userFromDb?.role?.name) {
-            throw new ForbiddenException(ErrorMessages.AUTH.FORBIDDEN);
-        }
+        // if (!userFromDb?.role?.name) {
+        //     throw new ForbiddenException(ErrorMessages.AUTH.FORBIDDEN);
+        // }
 
-        const hasRole = requiredRoles.includes(userFromDb.role.name);
+        // const hasRole = requiredRoles.includes(userFromDb.role.name);
 
-        if (!hasRole) {
-            throw new ForbiddenException(ErrorMessages.AUTH.FORBIDDEN);
-        }
+        // if (!hasRole) {
+        //     throw new ForbiddenException(ErrorMessages.AUTH.FORBIDDEN);
+        // }
 
         return true;
     }

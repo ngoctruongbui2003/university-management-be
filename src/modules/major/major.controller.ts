@@ -8,36 +8,36 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 @Controller('majors')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+// @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class MajorController {
     constructor(private readonly majorService: MajorService) {}
 
     @Post()
-    @RequirePermissions('create:major')
+    // @RequirePermissions('create:major')
     create(@Body() createMajorDto: CreateMajorDto) {
         return this.majorService.create(createMajorDto);
     }
 
     @Get()
-    @RequirePermissions('view:major')
+    // @RequirePermissions('view:major')
     findAll() {
         return this.majorService.findAll();
     }
 
     @Get(':id')
-    @RequirePermissions('view:major')
+    // @RequirePermissions('view:major')
     findOne(@Param('id') id: string) {
         return this.majorService.findOne(+id);
     }
 
     @Patch(':id')
-    @RequirePermissions('update:major')
+    // @RequirePermissions('update:major')
     update(@Param('id') id: string, @Body() updateMajorDto: UpdateMajorDto) {
         return this.majorService.update(+id, updateMajorDto);
     }
 
     @Delete(':id')
-    @RequirePermissions('delete:major')
+    // @RequirePermissions('delete:major')
     remove(@Param('id') id: string) {
         return this.majorService.remove(+id);
     }
