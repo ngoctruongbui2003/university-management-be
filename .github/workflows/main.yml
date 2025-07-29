@@ -1,0 +1,187 @@
+name: Deploy with Docker Compose University Management
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker environment
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set environment variables
+        run: |
+          echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
+          echo "IMAGE_NAME=${{ secrets.IMAGE_NAME }}" >> .env
+          echo "TAG_NAME=${{ secrets.TAG_NAME }}" >> .env
+
+          echo "PORT=${{ secrets.PORT }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_NAME=university" >> .env
+          echo "TYPEORM_SYNCHRONIZE=${{ secrets.TYPEORM_SYNCHRONIZE }}" >> .env
+          echo "TYPEORM_LOGGING=${{ secrets.TYPEORM_LOGGING }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> .env
+          echo "MYSQL_USER=${{ secrets.MYSQL_USER }}" >> .env
+          echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> .env
+
+          # echo "MINIO_ENDPOINT=${{ secrets.MINIO_ENDPOINT }}" >> .env
+          # echo "MINIO_PORT=${{ secrets.MINIO_PORT }}" >> .env
+          # echo "MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}" >> .env
+          # echo "MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}" >> .env
+          # echo "MINIO_PUBLIC_ENDPOINT=${{ secrets.MINIO_PUBLIC_ENDPOINT }}" >> .env
+          # echo "MINIO_USE_SSL=${{ secrets.MINIO_USE_SSL }}" >> .env
+
+      - name: Print .env contents
+        run: |
+          echo "🔍 Listing all environment variables in .env:"
+          cat .env
+
+      - name: Build and push backend image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }} .
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }}
+
+      - name: Copy files to server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PASS: ${{ secrets.SSH_PASS }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          sshpass -p $SSH_PASS ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USERNAME@$SSH_HOST "sudo mkdir -p /container && sudo chown $SSH_USERNAME /container"
+          sshpass -p $SSH_PASS scp -o StrictHostKeyChecking=no -P $SSH_PORT docker-compose.yml $SSH_USERNAME@$SSH_HOST:/container/docker-compose.yml
+          sshpass -p $SSH_PASS scp -o StrictHostKeyChecking=no -P $SSH_PORT .env $SSH_USERNAME@$SSH_HOST:/container/.env
+
+      - name: Deploy to Server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PASS: ${{ secrets.SSH_PASS }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
+          TAG_NAME: ${{ secrets.TAG_NAME }}
+        run: |
+          sshpass -p $SSH_PASS ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USERNAME@$SSH_HOST << 'EOF'
+            echo "Current directory: $(pwd)"
+            ls -l
+            cd /container || exit 1
+
+            # Ensure Docker and Docker Compose are installed and running
+            sudo systemctl start docker || sudo systemctl enable docker
+            sudo usermod -aG docker $USER || true
+            docker compose version || sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+
+            # Check files
+            if [ ! -f docker-compose.yml ]; then
+              echo "Missing docker-compose files!"
+              exit 1
+            fi
+            if [ ! -f .env ]; then
+              echo "Error: .env not found!"
+              exit 1
+            fi
+
+            echo "Stopping old containers..."
+            docker compose -f docker-compose.yml down || true
+
+            # Load environment variables
+            set -a; source .env; set +a
+
+            # Stop and remove old containers
+            echo "Stopping old containers..."
+            docker compose down || true
+
+            # Pull images (including mariadb and server)
+            echo "Pulling images from Docker Hub..."
+            docker pull mariadb:11.3
+            docker pull $DOCKER_USERNAME/$IMAGE_NAME-develop:$TAG_NAME
+
+            # Start services using Docker Compose
+            echo "Starting services..."
+            docker compose -f docker-compose.yml pull
+            docker compose -f docker-compose.yml up -d
+
+            # Verify deployment
+            echo "Deployment completed. Checking containers:"
+            docker ps -a
+            echo "Logs from services:"
+            docker compose logs --tail=10
+            docker compose -f docker-compose.yml logs --tail=10
+
+            echo "Deployment finished successfully."
+          EOF
+
+      - name: Send success email
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: '✅ University Management Backend CI/CD: Triển khai thành công'
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: 'University Management Backend <${{ secrets.SMTP_USERNAME }}>'
+          html_body: |
+            <html>
+              <body style="font-family: Arial, sans-serif; background-color: #f7f9fa; padding: 20px;">
+                <div style="max-width: 600px; margin: auto; background-color: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); padding: 20px;">
+                  <h2 style="color: #2c974b;">✅ University Management Backend CI/CD triển khai thành công!</h2>
+
+                  <p>Xin chào team 👋,</p>
+                  <p>Dưới đây là thông tin về lần triển khai mới nhất từ <strong>University</strong>:</p>
+
+                  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <tr>
+                      <td style="padding: 8px; font-weight: bold;">📦 Repository:</td>
+                      <td style="padding: 8px;">${{ github.repository }}</td>
+                    </tr>
+                    <tr style="background-color: #f0f0f0;">
+                      <td style="padding: 8px; font-weight: bold;">🔀 Branch:</td>
+                      <td style="padding: 8px;">${{ github.ref }}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px; font-weight: bold;">🧱 Image:</td>
+                      <td style="padding: 8px;">${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }}</td>
+                    </tr>
+                    <tr style="background-color: #f0f0f0;">
+                      <td style="padding: 8px; font-weight: bold;">🚀 Deploy to:</td>
+                      <td style="padding: 8px;">${{ secrets.SSH_HOST }}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px; font-weight: bold;">🕒 Time:</td>
+                      <td style="padding: 8px;">${{ github.event.head_commit.timestamp }}</td>
+                    </tr>
+                    <tr style="background-color: #f0f0f0;">
+                      <td style="padding: 8px; font-weight: bold;">👤 By:</td>
+                      <td style="padding: 8px;">${{ github.actor }}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px; font-weight: bold;">📝 Commit:</td>
+                      <td style="padding: 8px;">${{ github.event.head_commit.message }}</td>
+                    </tr>
+                  </table>
+
+                  <p style="margin-top: 20px;">🎉 Cảm ơn bạn đã sử dụng CI/CD pipeline.</p>
+                  <p style="font-size: 12px; color: gray;">Email được gửi tự động từ GitHub Actions. Vui lòng không trả lời.</p>
+                </div>
+              </body>
+            </html>
