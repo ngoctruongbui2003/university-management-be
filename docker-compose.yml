@@ -1,49 +1,10 @@
+version: '1.0'
+
 services:
-  mariadb:
-    image: mariadb:11.3
-    container_name: university_mariadb
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: university
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mariadb_data:/var/lib/mysql
-    networks:
-      - uni_network
-    healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   server:
-    image: ${DOCKER_USERNAME}/${IMAGE_NAME}-develop:${TAG_NAME}
-    container_name: university_server
-    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smart-agriculture-system
     ports:
-      - '8082:8082'
-    environment:
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_USER: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: university
-      JWT_SECRET: super_secret_key
-      JWT_EXPIRES_IN_ACCESS: 1d
-      JWT_EXPIRES_IN_REFRESH: 7d
-    depends_on:
-      mariadb:
-        condition: service_started
-    networks:
-      - uni_network
-
-volumes:
-  mariadb_data:
-
-networks:
-  uni_network:
-    driver: bridge
+      - "8888:8888"

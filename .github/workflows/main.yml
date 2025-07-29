@@ -1,4 +1,4 @@
-name: Deploy with Docker Compose University Management
+name: Deploy to Server
 
 on:
   push:
@@ -16,117 +16,60 @@ jobs:
       - name: Set up Docker environment
         uses: docker/setup-buildx-action@v1
 
-      - name: Login to Docker Hub
+      - name: Login to Docker Hub (optional, if pushing image)
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Set environment variables
-        run: |
-          echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
-          echo "IMAGE_NAME=${{ secrets.IMAGE_NAME }}" >> .env
-          echo "TAG_NAME=${{ secrets.TAG_NAME }}" >> .env
+      - name: install package
+        run: npm install
 
+      - name: Set environment variables for Docker build
+        run: | 
           echo "PORT=${{ secrets.PORT }}" >> .env
           echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
           echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "DB_NAME=university" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
           echo "TYPEORM_SYNCHRONIZE=${{ secrets.TYPEORM_SYNCHRONIZE }}" >> .env
           echo "TYPEORM_LOGGING=${{ secrets.TYPEORM_LOGGING }}" >> .env
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
           echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> .env
-          echo "MYSQL_USER=${{ secrets.MYSQL_USER }}" >> .env
-          echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> .env
 
-          # echo "MINIO_ENDPOINT=${{ secrets.MINIO_ENDPOINT }}" >> .env
-          # echo "MINIO_PORT=${{ secrets.MINIO_PORT }}" >> .env
-          # echo "MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}" >> .env
-          # echo "MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}" >> .env
-          # echo "MINIO_PUBLIC_ENDPOINT=${{ secrets.MINIO_PUBLIC_ENDPOINT }}" >> .env
-          # echo "MINIO_USE_SSL=${{ secrets.MINIO_USE_SSL }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "JWT_EXPIRES_IN_ACCESS=${{ secrets.JWT_EXPIRES_IN_ACCESS }}" >> .env
+          echo "JWT_EXPIRES_IN_REFRESH=${{ secrets.JWT_EXPIRES_IN_REFRESH }}" >> .env
 
-      - name: Print .env contents
-        run: |
-          echo "🔍 Listing all environment variables in .env:"
-          cat .env
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }} .
 
-      - name: Build and push backend image
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }} .
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }}
+      - name: Add tag docker image (optional)
+        run: docker tag ${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }} ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }}_${{ github.sha }}
 
-      - name: Copy files to server
+      - name: Push Docker image to docker hub (optional)
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }}_${{ github.sha }}
+
+      - name: Deploy to Server (using SSH and Docker)
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           SSH_PASS: ${{ secrets.SSH_PASS }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          sshpass -p $SSH_PASS ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USERNAME@$SSH_HOST "sudo mkdir -p /container && sudo chown $SSH_USERNAME /container"
-          sshpass -p $SSH_PASS scp -o StrictHostKeyChecking=no -P $SSH_PORT docker-compose.yml $SSH_USERNAME@$SSH_HOST:/container/docker-compose.yml
-          sshpass -p $SSH_PASS scp -o StrictHostKeyChecking=no -P $SSH_PORT .env $SSH_USERNAME@$SSH_HOST:/container/.env
-
-      - name: Deploy to Server
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
-          SSH_PASS: ${{ secrets.SSH_PASS }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           TAG_NAME: ${{ secrets.TAG_NAME }}
         run: |
-          sshpass -p $SSH_PASS ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USERNAME@$SSH_HOST << 'EOF'
-            echo "Current directory: $(pwd)"
-            ls -l
-            cd /container || exit 1
-
-            # Ensure Docker and Docker Compose are installed and running
-            sudo systemctl start docker || sudo systemctl enable docker
-            sudo usermod -aG docker $USER || true
-            docker compose version || sudo apt-get update && sudo apt-get install -y docker-compose-plugin
-
-            # Check files
-            if [ ! -f docker-compose.yml ]; then
-              echo "Missing docker-compose files!"
-              exit 1
+          sshpass -p $SSH_PASS ssh -o StrictHostKeyChecking=no -p 24700 $SSH_USERNAME@$SSH_HOST << 'EOF'
+            mkdir -p /container && cd /container
+            if docker ps -aq --filter name=${{ secrets.IMAGE_NAME }}-develop | grep -q .; then
+                docker stop ${{ secrets.IMAGE_NAME }}-develop || true
+                docker rm -f ${{ secrets.IMAGE_NAME }}-develop || true
             fi
-            if [ ! -f .env ]; then
-              echo "Error: .env not found!"
-              exit 1
+            if docker images --filter=reference=${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop --quiet | grep -q .; then
+                docker images --filter=reference=${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop --quiet | xargs -r docker rmi -f
             fi
-
-            echo "Stopping old containers..."
-            docker compose -f docker-compose.yml down || true
-
-            # Load environment variables
-            set -a; source .env; set +a
-
-            # Stop and remove old containers
-            echo "Stopping old containers..."
-            docker compose down || true
-
-            # Pull images (including mariadb and server)
-            echo "Pulling images from Docker Hub..."
-            docker pull mariadb:11.3
-            docker pull $DOCKER_USERNAME/$IMAGE_NAME-develop:$TAG_NAME
-
-            # Start services using Docker Compose
-            echo "Starting services..."
-            docker compose -f docker-compose.yml pull
-            docker compose -f docker-compose.yml up -d
-
-            # Verify deployment
-            echo "Deployment completed. Checking containers:"
-            docker ps -a
-            echo "Logs from services:"
-            docker compose logs --tail=10
-            docker compose -f docker-compose.yml logs --tail=10
-
-            echo "Deployment finished successfully."
+            docker pull ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }}_${{ github.sha }}
+            docker run -d -p 8888:8888 --name ${{ secrets.IMAGE_NAME }}-develop ${{ secrets.DOCKER_USERNAME }}/${{ secrets.IMAGE_NAME }}-develop:${{ secrets.TAG_NAME }}_${{ github.sha }}
           EOF
 
       - name: Send success email

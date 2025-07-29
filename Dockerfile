@@ -8,7 +8,7 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 8081
+EXPOSE 8888
 
 RUN npm run build
 CMD ["node", "dist/main"]
