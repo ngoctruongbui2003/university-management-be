@@ -9,8 +9,8 @@ export const config = {
     db: {
         host: process.env.DB_HOST || 'localhost',
         port: process.env.DB_PORT || 5432,
-        user: process.env.DB_USER || 'user',
-        password: process.env.DB_PASSWORD || 'password',
+        user: process.env.DB_USERNAME || 'user',
+        password: process.env.DB_PASSWORD || '',
         database: process.env.DB_NAME || 'database',
         typeOrmSynchronize: process.env.TYPEORM_SYNCHRONIZE || false,
         typeOrmLogging: process.env.TYPEORM_LOGGING || false,

@@ -8,6 +8,11 @@ import { CurriculumsService } from './curriculums.service';
 import { CurriculumSessionsService } from './curriculum-sessions.service';
 import { CurriculumItemsService } from './curriculum-items.service';
 import { SubjectCurriculumItemsService } from './subject-curriculum-items.service';
+import { CurriculumSessionsController } from './curriculum-sessions.controller';
+import { SubjectPrerequisite } from 'src/entities/subject_prerequisite.entity';
+import { Subject } from 'src/entities/subject.entity';
+import { Major } from 'src/entities/major.entity';
+import { CurriculumConnect } from 'src/entities/curriculum-connect.entity';
 
 @Module({
   imports: [
@@ -16,8 +21,15 @@ import { SubjectCurriculumItemsService } from './subject-curriculum-items.servic
       CurriculumSession,
       CurriculumItem,
       SubjectCurriculumItem,
+      SubjectPrerequisite,
+      Subject,
+      Major,
+      CurriculumConnect,
     ]),
   ],
+  controllers: [
+    CurriculumSessionsController
+  ], 
   providers: [
     CurriculumsService,
     CurriculumSessionsService,

@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { CurriculumSession } from './curriculum-session.entity';
+import { CurriculumConnect } from './curriculum-connect.entity';
 
 export enum CurriculumStatus {
   ACTIVE = 'Active',
@@ -17,8 +18,8 @@ export class Curriculum {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ name: 'effective_year' })
-  effectiveYear: number;
+  @Column({ name: 'academic_year', nullable: true })
+  academicYear: number;
 
   @Column({
     type: 'enum',
@@ -27,12 +28,20 @@ export class Curriculum {
   })
   status: CurriculumStatus;
 
+  @Column({ name: 'major_id', nullable: true })
+  majorId: number;
+
+  @Column({ name: 'total_credits', nullable: true })
+  totalCredits: number;
+
   @CreateDateColumn()
   created_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;
 
-  @OneToMany(() => CurriculumSession, session => session.curriculum)
-  sessions: CurriculumSession[];
+  // ---------------Relationships---------------
+
+  @OneToMany(() => CurriculumConnect, connect => connect.curriculum)
+  connects: CurriculumConnect[];
 } 

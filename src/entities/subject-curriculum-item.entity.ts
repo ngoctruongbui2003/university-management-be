@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, ManyToMany, JoinTable, OneToMany } from 'typeorm';
 import { CurriculumItem } from './curriculum-item.entity';
 import { Subject } from './subject.entity';
+import { SubjectPrerequisite } from './subject_prerequisite.entity';
 
 @Entity('subject_curriculum_items')
 export class SubjectCurriculumItem {
@@ -16,17 +17,19 @@ export class SubjectCurriculumItem {
   @Column({ name: 'is_required', default: true })
   isRequired: boolean;
 
-  @Column()
-  credits: number;
+  @Column({ name: 'min_credits' })
+  min_credits: number;
 
-  @Column({ name: 'prerequisite_id', nullable: true })
-  prerequisiteId: number;
+  @Column({ name: 'item_sequence' })
+  itemSequence: number;
 
   @CreateDateColumn()
   created_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  // ---------------Relationships---------------
 
   @ManyToOne(() => CurriculumItem, item => item.subjectItems)
   @JoinColumn({ name: 'curriculum_item_id' })
@@ -36,7 +39,11 @@ export class SubjectCurriculumItem {
   @JoinColumn({ name: 'subject_id' })
   subject: Subject;
 
-  @ManyToOne(() => Subject)
-  @JoinColumn({ name: 'prerequisite_id' })
-  prerequisite: Subject;
+  @OneToMany(() => SubjectPrerequisite, prerequisite => prerequisite.subjectCurriculumItem)
+  @JoinColumn({ name: 'subject_curriculum_item_id' })
+  prerequisite: SubjectPrerequisite[];
+
+  @OneToMany(() => SubjectPrerequisite, prerequisite => prerequisite.prerequisiteSubjectCurriculumItem)
+  @JoinColumn({ name: 'prerequisite_subject_curriculum_item_id' })
+  prerequisiteSubjectCurriculumItem: SubjectPrerequisite[];
 } 
