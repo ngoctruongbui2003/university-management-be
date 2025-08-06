@@ -10,3 +10,8 @@ export enum Gender {
     FEMALE = 1,  // Nữ
     OTHER = 2    // Khác
 }
+
+export enum SemesterStatus {
+    ACTIVE = 'Active',
+    CLOSED = 'Closed'
+}
