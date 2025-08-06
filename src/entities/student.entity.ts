@@ -19,8 +19,8 @@ export class Student {
     @Column({ length: 100 })
     address: string;
 
-    @Column({ length: 100 })
-    gender: string;
+    @Column({ type: 'tinyint', comment: '0: Nam, 1: Nữ, 2: Khác' })
+    gender: number;
 
     @Column()
     birth_date: Date;
