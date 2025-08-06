@@ -12,6 +12,9 @@ export class Faculty {
     @Column({ length: 100, nullable: true })
     dean: string;
 
+    @Column({ length: 100, unique: true })
+    code: string;
+
     @Column({ type: 'text', nullable: true })
     contact_info: string;
 

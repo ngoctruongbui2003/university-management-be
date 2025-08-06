@@ -8,6 +8,12 @@ export class CreateFacultyDto {
     @MaxLength(100, { message: 'Tên khoa không được vượt quá 100 ký tự' })
     name: string;
 
+    @ApiProperty({ description: 'Mã khoa', example: 'IT' })
+    @IsNotEmpty({ message: 'Mã khoa không được để trống' })
+    @IsString({ message: 'Mã khoa phải là chuỗi' })
+    @MaxLength(10, { message: 'Mã khoa không được vượt quá 10 ký tự' })
+    code: string;
+
     @ApiProperty({ description: 'Tên trưởng khoa', example: 'Nguyễn Văn A', required: false })
     @IsOptional()
     @IsString({ message: 'Tên trưởng khoa phải là chuỗi' })

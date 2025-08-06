@@ -13,7 +13,10 @@ export class FacultyService {
     ) {}
 
     async create(createFacultyDto: CreateFacultyDto): Promise<Faculty> {
-        const existing = await this.facultyRepository.findOneBy({ name: createFacultyDto.name });
+        const existing = await this.facultyRepository.findOneBy({ 
+            name: createFacultyDto.name,
+            code: createFacultyDto.code
+        });
         if (existing) {
             throw new ConflictException(ErrorMessages.FACULTY.EXIST);
         }

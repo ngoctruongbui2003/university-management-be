@@ -14,8 +14,11 @@ export class Classes {
     @Column({ length: 100 })
     description: string;
 
-    @Column({ length: 100 })
+    @Column()
     academic_year: number;
+
+    @Column()
+    major_id: number;
 
     @CreateDateColumn()
     created_at: Date;
@@ -24,7 +27,7 @@ export class Classes {
     updated_at: Date;
 
     // ---------------Relationships---------------
-    @ManyToOne(() => Major, major => major.id)
+    @ManyToOne(() => Major, major => major.classes)
     @JoinColumn({ name: 'major_id' })
     major: Major;
 
@@ -32,6 +35,6 @@ export class Classes {
     @JoinColumn({ name: 'curriculum_id' })
     curriculum: Curriculum[];
 
-    @OneToMany(() => Student, student => student.id)
+    @OneToMany(() => Student, student => student.classes)
     students: Student[];
 }

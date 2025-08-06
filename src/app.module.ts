@@ -13,6 +13,7 @@ import { GradingFormulasModule } from './modules/grading-formulas/grading-formul
 import { SubjectsModule } from './modules/subjects/subjects.module';
 import { CurriculumsModule } from './modules/curriculums/curriculums.module';
 import { MajorModule } from './modules/major/major.module';
+import { ClassesModule } from './modules/classes/classes.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,6 +29,7 @@ import { MajorModule } from './modules/major/major.module';
     SubjectsModule,
     CurriculumsModule,
     MajorModule,
+    ClassesModule
   ],
   controllers: [AppController],
   providers: [

@@ -22,7 +22,7 @@ export class Student {
     @Column({ length: 100 })
     gender: string;
 
-    @Column({ length: 100 })
+    @Column()
     birth_date: Date;
 
     // ---------------Relationships---------------
