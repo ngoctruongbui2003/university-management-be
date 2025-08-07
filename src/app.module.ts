@@ -21,6 +21,7 @@ import { SemesterModule } from './modules/semester/semester.module';
 import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
 import { ClassroomModule } from './modules/classroom/classroom.module';
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
+import { GradesModule } from './modules/grades/grades.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -43,7 +44,8 @@ import { FileUploadModule } from './modules/file-upload/file-upload.module';
     CourseRegistrationModule,
     TimetableModule,
     ClassroomModule,
-    FileUploadModule
+    FileUploadModule,
+    GradesModule
   ],
   controllers: [AppController],
   providers: [

@@ -116,4 +116,28 @@ export class ClassroomController {
     ) {
         return await this.classroomService.autoCreateClassroom(courseId, studentId);
     }
+
+    /**
+     * Lấy classroom dashboard với đầy đủ thông tin
+     * GET /classrooms/:id/dashboard
+     */
+    @Get(':id/dashboard')
+    async getClassroomDashboard(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Query('user_id', ParseIntPipe) userId: number
+    ) {
+        return await this.classroomService.getClassroomDashboard(classroomId, userId);
+    }
+
+    /**
+     * Lấy danh sách members
+     * GET /classrooms/:id/members
+     */
+    @Get(':id/members')
+    async getClassroomMembers(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Query('user_id', ParseIntPipe) userId: number
+    ) {
+        return await this.classroomService.getClassroomMembers(classroomId, userId);
+    }
 }

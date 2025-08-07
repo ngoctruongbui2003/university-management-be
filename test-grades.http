@@ -1,0 +1,122 @@
+### Test Grades APIs
+
+### 1. Tạo đợt chấm điểm mới (CC - Chuyên cần)
+POST http://localhost:3000/classrooms/1/grades/entries?teacher_id=2
+Content-Type: application/json
+
+{
+  "grade_type_id": 1,
+  "title": "Điểm chuyên cần tuần 1-4",
+  "description": "Điểm chuyên cần 4 tuần đầu tiên",
+  "max_score": 10,
+  "is_published": false
+}
+
+### 2. Tạo đợt chấm điểm GK (Giữa kỳ)
+POST http://localhost:3000/classrooms/1/grades/entries?teacher_id=2
+Content-Type: application/json
+
+{
+  "grade_type_id": 2,
+  "title": "Kiểm tra giữa kỳ",
+  "description": "Bài kiểm tra giữa kỳ môn Lập trình Web",
+  "max_score": 10,
+  "due_date": "2024-03-15T09:00:00.000Z",
+  "is_published": true
+}
+
+### 3. Lấy danh sách đợt chấm điểm
+GET http://localhost:3000/classrooms/1/grades/entries?user_id=2
+
+### 4. Nhập điểm cho 1 sinh viên
+POST http://localhost:3000/classrooms/1/grades/single?teacher_id=2
+Content-Type: application/json
+
+{
+  "student_id": 1,
+  "grade_book_entry_id": 1,
+  "score": 8.5,
+  "comments": "Tham gia tích cực",
+  "is_published": true
+}
+
+### 5. Nhập điểm hàng loạt
+POST http://localhost:3000/classrooms/1/grades/batch?teacher_id=2
+Content-Type: application/json
+
+{
+  "grade_book_entry_id": 2,
+  "grades": [
+    {
+      "student_id": 1,
+      "score": 7.5,
+      "comments": "Làm bài khá tốt"
+    },
+    {
+      "student_id": 3,
+      "score": 8.0,
+      "comments": "Cần cải thiện phần lý thuyết"
+    },
+    {
+      "student_id": 4,
+      "score": 9.0,
+      "comments": "Xuất sắc"
+    }
+  ],
+  "is_published": true
+}
+
+### 6. Lấy sổ điểm tổng quan
+GET http://localhost:3000/classrooms/1/grades/gradebook?user_id=2
+
+### 7. Lấy điểm của 1 sinh viên cụ thể
+GET http://localhost:3000/classrooms/1/grades/student/1?requester_id=2
+
+### 8. Sinh viên xem điểm của chính mình
+GET http://localhost:3000/classrooms/1/grades/student/1?requester_id=1
+
+### 9. Tính điểm cuối kỳ
+POST http://localhost:3000/classrooms/1/grades/calculate-final?teacher_id=2
+Content-Type: application/json
+
+{
+  "include_incomplete": false,
+  "save_as_final": false
+}
+
+### 10. Tính điểm cuối kỳ (bao gồm cả điểm chưa hoàn thành)
+POST http://localhost:3000/classrooms/1/grades/calculate-final?teacher_id=2
+Content-Type: application/json
+
+{
+  "include_incomplete": true,
+  "save_as_final": true
+}
+
+### 11. Export grades (sẽ implement sau)
+GET http://localhost:3000/classrooms/1/grades/export?user_id=2&format=excel
+
+### 12. Thống kê điểm (sẽ implement sau)
+GET http://localhost:3000/classrooms/1/grades/statistics?user_id=2
+
+### 13. Cập nhật đợt chấm điểm (sẽ implement sau)
+PUT http://localhost:3000/classrooms/1/grades/entries/1?teacher_id=2
+Content-Type: application/json
+
+{
+  "title": "Điểm chuyên cần tuần 1-6 (cập nhật)",
+  "description": "Mở rộng thêm 2 tuần",
+  "is_published": true
+}
+
+### 14. Cập nhật điểm sinh viên (sẽ implement sau)
+PUT http://localhost:3000/classrooms/1/grades/1?teacher_id=2
+Content-Type: application/json
+
+{
+  "score": 9.0,
+  "comments": "Cập nhật điểm sau phúc khảo"
+}
+
+### 15. Xóa đợt chấm điểm (sẽ implement sau)
+DELETE http://localhost:3000/classrooms/1/grades/entries/1?teacher_id=2

@@ -7,6 +7,7 @@ import { ClassroomMember, ClassroomRole } from '../../entities/classroom-member.
 import { Course } from '../../entities/course.entity';
 import { User } from '../../entities/user.entity';
 import { FileUploadService } from '../file-upload/file-upload.service';
+import { GradesService } from '../grades/grades.service';
 import { 
     CreateClassroomDto, 
     UpdateClassroomDto, 
@@ -297,6 +298,117 @@ export class ClassroomService {
         }
 
         await this.addMember(classroom.id, userId, ClassroomRole.STUDENT);
+    }
+
+    /**
+     * Lấy classroom dashboard với đầy đủ thông tin (posts + grades summary)
+     */
+    async getClassroomDashboard(classroomId: number, userId: number): Promise<any> {
+        await this.validateMemberAccess(classroomId, userId);
+
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: [
+                'course',
+                'course.subject',
+                'course.teacher',
+                'course.semester'
+            ]
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        // Get recent posts
+        const recentPosts = await this.postRepository.find({
+            where: { classroom_id: classroomId },
+            relations: ['creator'],
+            order: { 
+                is_pinned: 'DESC',
+                created_at: 'DESC' 
+            },
+            take: 5 // Latest 5 posts
+        });
+
+        // Get member info
+        const userMember = await this.memberRepository.findOne({
+            where: { classroom_id: classroomId, user_id: userId }
+        });
+
+        // Get member count
+        const memberCount = await this.memberRepository.count({
+            where: { classroom_id: classroomId, is_active: true }
+        });
+
+        return {
+            classroom: this.mapToResponseDto(classroom),
+            user_role: userMember?.role,
+            member_count: memberCount,
+            recent_posts: recentPosts.map(post => this.mapPostToResponseDto(post)),
+            tabs: {
+                stream: { available: true, count: recentPosts.length },
+                grades: { available: true, count: 0 }, // Will be populated by grades service
+                assignments: { available: false, count: 0 }, // Future feature
+                members: { available: true, count: memberCount }
+            }
+        };
+    }
+
+    /**
+     * Lấy members của classroom với role info
+     */
+    async getClassroomMembers(classroomId: number, userId: number): Promise<any> {
+        await this.validateMemberAccess(classroomId, userId);
+
+        const members = await this.memberRepository.find({
+            where: { classroom_id: classroomId, is_active: true },
+            relations: ['user'],
+            order: { role: 'ASC', joined_at: 'ASC' }
+        });
+
+        const groupedMembers = {
+            teachers: members.filter(m => m.role === ClassroomRole.TEACHER),
+            assistants: members.filter(m => m.role === ClassroomRole.ASSISTANT),
+            students: members.filter(m => m.role === ClassroomRole.STUDENT)
+        };
+
+        return {
+            total_count: members.length,
+            teachers: groupedMembers.teachers.map(m => ({
+                id: m.id,
+                user_id: m.user_id,
+                role: m.role,
+                joined_at: m.joined_at,
+                user: {
+                    id: m.user.id,
+                    full_name: m.user.full_name,
+                    email: m.user.email
+                }
+            })),
+            assistants: groupedMembers.assistants.map(m => ({
+                id: m.id,
+                user_id: m.user_id,
+                role: m.role,
+                joined_at: m.joined_at,
+                user: {
+                    id: m.user.id,
+                    full_name: m.user.full_name,
+                    email: m.user.email
+                }
+            })),
+            students: groupedMembers.students.map(m => ({
+                id: m.id,
+                user_id: m.user_id,
+                role: m.role,
+                joined_at: m.joined_at,
+                user: {
+                    id: m.user.id,
+                    full_name: m.user.full_name,
+                    email: m.user.email
+                }
+            }))
+        };
     }
 
     /**

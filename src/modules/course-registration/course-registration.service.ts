@@ -14,6 +14,7 @@ import { RegistrationSession } from '../../entities/registration-session.entity'
 import { SessionCourse } from '../../entities/session-course.entity';
 import { SessionCourseDepartment } from '../../entities/session-course-department.entity';
 import { CourseSchedule } from '../../entities/course-schedule.entity';
+import { ClassroomService } from '../classroom/classroom.service';
 import { RegistrationStatus } from '../../shared/constants/enum';
 
 @Injectable()
@@ -34,6 +35,8 @@ export class CourseRegistrationService {
         @InjectRepository(CourseSchedule)
         private courseScheduleRepository: Repository<CourseSchedule>,
         private dataSource: DataSource,
+        
+        private classroomService: ClassroomService,
     ) {}
 
     /**
@@ -88,6 +91,14 @@ export class CourseRegistrationService {
             await queryRunner.manager.increment(Course, { id: registerDto.course_id }, 'current_students', 1);
             
             await queryRunner.commitTransaction();
+            
+            // 11. Auto-create/join classroom after successful registration
+            try {
+                await this.classroomService.autoCreateClassroom(registerDto.course_id, registerDto.student_id);
+            } catch (classroomError) {
+                // Log error but don't fail the registration
+                console.warn('Failed to auto-create classroom:', classroomError.message);
+            }
             
             // Return with relations
             return await this.findRegistrationWithDetails(savedRegistration.id);

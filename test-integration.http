@@ -1,0 +1,168 @@
+### Test Full E-Learning Integration Flow
+
+### PHASE 1: COURSE REGISTRATION WITH AUTO-CLASSROOM
+### 1. Đăng ký môn học (sẽ tự động tạo classroom)
+POST http://localhost:3000/course-registration/register
+Content-Type: application/json
+
+{
+  "student_id": 1,
+  "course_id": 1,
+  "registration_session_id": 1,
+  "notes": "Đăng ký môn học và tự động tạo classroom"
+}
+
+### 2. Xem danh sách classroom của sinh viên (sau khi đăng ký)
+GET http://localhost:3000/classrooms/my-classrooms?user_id=1
+
+### PHASE 2: CLASSROOM DASHBOARD INTEGRATION
+### 3. Xem classroom dashboard đầy đủ (posts + grades info)
+GET http://localhost:3000/classrooms/1/dashboard?user_id=1
+
+### 4. Xem danh sách members trong classroom
+GET http://localhost:3000/classrooms/1/members?user_id=1
+
+### PHASE 3: CLASSROOM ACTIVITIES
+### 5. Giáo viên tạo thông báo
+POST http://localhost:3000/classrooms/1/posts?creator_id=2
+Content-Type: application/json
+
+{
+  "title": "Chào mừng đến với lớp học online!",
+  "content": "Chào các em sinh viên. Đây là lớp học online cho môn Lập trình Web. Các em hãy tham gia tích cực nhé!",
+  "post_type": "important",
+  "is_pinned": true
+}
+
+### 6. Giáo viên chia sẻ tài liệu
+POST http://localhost:3000/classrooms/1/posts?creator_id=2
+Content-Type: application/json
+
+{
+  "title": "Slide bài giảng tuần 1",
+  "content": "Đây là slide bài giảng cho tuần đầu tiên. Các em hãy download và đọc trước.",
+  "post_type": "material"
+}
+
+### 7. Xem lại posts trong classroom
+GET http://localhost:3000/classrooms/1/posts?user_id=1
+
+### PHASE 4: GRADES INTEGRATION
+### 8. Giáo viên tạo đợt chấm điểm chuyên cần (CC)
+POST http://localhost:3000/classrooms/1/grades/entries?teacher_id=2
+Content-Type: application/json
+
+{
+  "grade_type_id": 1,
+  "title": "Điểm chuyên cần tuần 1-4",
+  "description": "Điểm chuyên cần 4 tuần đầu học kỳ",
+  "max_score": 10,
+  "is_published": true
+}
+
+### 9. Giáo viên nhập điểm cho sinh viên
+POST http://localhost:3000/classrooms/1/grades/single?teacher_id=2
+Content-Type: application/json
+
+{
+  "student_id": 1,
+  "grade_book_entry_id": 1,
+  "score": 8.5,
+  "comments": "Tham gia lớp học tích cực, đi học đều đặn",
+  "is_published": true
+}
+
+### 10. Tạo đợt chấm điểm giữa kỳ (GK)
+POST http://localhost:3000/classrooms/1/grades/entries?teacher_id=2
+Content-Type: application/json
+
+{
+  "grade_type_id": 2,
+  "title": "Kiểm tra giữa kỳ",
+  "description": "Bài kiểm tra giữa kỳ môn Lập trình Web",
+  "max_score": 10,
+  "due_date": "2024-03-15T09:00:00.000Z",
+  "is_published": true
+}
+
+### 11. Nhập điểm giữa kỳ cho sinh viên
+POST http://localhost:3000/classrooms/1/grades/single?teacher_id=2
+Content-Type: application/json
+
+{
+  "student_id": 1,
+  "grade_book_entry_id": 2,
+  "score": 7.5,
+  "comments": "Làm bài khá tốt, cần cải thiện phần lý thuyết",
+  "is_published": true
+}
+
+### PHASE 5: STUDENT VIEW
+### 12. Sinh viên xem dashboard classroom
+GET http://localhost:3000/classrooms/1/dashboard?user_id=1
+
+### 13. Sinh viên xem điểm của mình
+GET http://localhost:3000/classrooms/1/grades/student/1?requester_id=1
+
+### 14. Sinh viên xem sổ điểm lớp (nếu có quyền)
+GET http://localhost:3000/classrooms/1/grades/gradebook?user_id=1
+
+### PHASE 6: TEACHER MANAGEMENT
+### 15. Giáo viên xem sổ điểm tổng quan
+GET http://localhost:3000/classrooms/1/grades/gradebook?user_id=2
+
+### 16. Giáo viên xem danh sách đợt chấm điểm
+GET http://localhost:3000/classrooms/1/grades/entries?user_id=2
+
+### 17. Tính điểm cuối kỳ cho cả lớp
+POST http://localhost:3000/classrooms/1/grades/calculate-final?teacher_id=2
+Content-Type: application/json
+
+{
+  "include_incomplete": true,
+  "save_as_final": false
+}
+
+### PHASE 7: INTEGRATION VERIFICATION
+### 18. Kiểm tra thời khóa biểu đã tích hợp classroom
+GET http://localhost:3000/timetable/student/1/weekly
+
+### 19. Xem chi tiết đăng ký để confirm classroom đã được tạo
+GET http://localhost:3000/course-registration/student/1
+
+### 20. Test đăng ký sinh viên thứ 2 (auto-join existing classroom)
+POST http://localhost:3000/course-registration/register
+Content-Type: application/json
+
+{
+  "student_id": 3,
+  "course_id": 1,
+  "registration_session_id": 1,
+  "notes": "Sinh viên thứ 2 đăng ký - should auto-join existing classroom"
+}
+
+### 21. Verify sinh viên thứ 2 đã được thêm vào classroom
+GET http://localhost:3000/classrooms/1/members?user_id=2
+
+### PHASE 8: COMPLETE WORKFLOW TEST
+### 22. Sinh viên thứ 2 xem classroom dashboard
+GET http://localhost:3000/classrooms/1/dashboard?user_id=3
+
+### 23. Nhập điểm cho sinh viên thứ 2
+POST http://localhost:3000/classrooms/1/grades/batch?teacher_id=2
+Content-Type: application/json
+
+{
+  "grade_book_entry_id": 1,
+  "grades": [
+    {
+      "student_id": 3,
+      "score": 9.0,
+      "comments": "Xuất sắc"
+    }
+  ],
+  "is_published": true
+}
+
+### 24. Final check - Xem lại sổ điểm với 2 sinh viên
+GET http://localhost:3000/classrooms/1/grades/gradebook?user_id=2

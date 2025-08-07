@@ -9,6 +9,7 @@ import { RegistrationSession } from '../../entities/registration-session.entity'
 import { SessionCourse } from '../../entities/session-course.entity';
 import { SessionCourseDepartment } from '../../entities/session-course-department.entity';
 import { CourseSchedule } from '../../entities/course-schedule.entity';
+import { ClassroomModule } from '../classroom/classroom.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CourseSchedule } from '../../entities/course-schedule.entity';
       SessionCourseDepartment,
       CourseSchedule,
     ]),
+    ClassroomModule,
   ],
   controllers: [CourseRegistrationController],
   providers: [CourseRegistrationService],
