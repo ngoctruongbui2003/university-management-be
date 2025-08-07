@@ -19,6 +19,8 @@ import { StudentModule } from './modules/student/student.module';
 import { TeacherModule } from './modules/teacher/teacher.module';
 import { SemesterModule } from './modules/semester/semester.module';
 import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
+import { ClassroomModule } from './modules/classroom/classroom.module';
+import { FileUploadModule } from './modules/file-upload/file-upload.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -39,7 +41,9 @@ import { CourseRegistrationModule } from './modules/course-registration/course-r
     TeacherModule,
     SemesterModule,
     CourseRegistrationModule,
-    TimetableModule
+    TimetableModule,
+    ClassroomModule,
+    FileUploadModule
   ],
   controllers: [AppController],
   providers: [
