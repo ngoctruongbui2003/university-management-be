@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
-import { Teacher } from './entities/teacher.entity';
+import { Teacher } from '../../entities/teacher.entity';
 
 @Injectable()
 export class TeacherService {

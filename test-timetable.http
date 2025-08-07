@@ -1,0 +1,44 @@
+### Test Timetable Module
+GET http://localhost:3000/timetable/test
+
+### Test Weekly Timetable for Student ID 1
+GET http://localhost:3000/timetable/student/1/weekly
+
+### Test Weekly Timetable for Student ID 1 with specific semester
+GET http://localhost:3000/timetable/student/1/weekly?semester_id=1
+
+### Test Current Week Timetable for Student ID 1
+GET http://localhost:3000/timetable/student/1/current
+
+### Test Daily Timetable for today
+GET http://localhost:3000/timetable/student/1/date/2024-01-15
+
+### Test Semester Overview for Student ID 1
+GET http://localhost:3000/timetable/student/1/overview
+
+### Test Multiple Students Timetable
+GET http://localhost:3000/timetable/multiple-students?student_ids=1,2,3
+
+### Test Schedule Conflicts for Student ID 1
+GET http://localhost:3000/timetable/student/1/conflicts
+
+### Test Timetable Statistics for Student ID 1
+GET http://localhost:3000/timetable/student/1/statistics
+
+### Test Weekly Timetable with specific week
+GET http://localhost:3000/timetable/student/1/weekly?week_start_date=2024-01-15
+
+### Test Weekly Timetable with week range
+GET http://localhost:3000/timetable/student/1/weekly?week_start_date=2024-01-15&week_end_date=2024-01-21
+
+### Export Timetable as JSON
+GET http://localhost:3000/timetable/student/1/export?format=json
+
+### Export Timetable as CSV
+GET http://localhost:3000/timetable/student/1/export?format=csv
+
+### Export Timetable as PDF data
+GET http://localhost:3000/timetable/student/1/export?format=pdf
+
+### Export Timetable for specific week
+GET http://localhost:3000/timetable/student/1/export?format=csv&week_start_date=2024-01-15

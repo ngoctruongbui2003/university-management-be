@@ -14,6 +14,11 @@ import { SubjectsModule } from './modules/subjects/subjects.module';
 import { CurriculumsModule } from './modules/curriculums/curriculums.module';
 import { MajorModule } from './modules/major/major.module';
 import { ClassesModule } from './modules/classes/classes.module';
+import { TimetableModule } from './modules/timetable/timetable.module';
+import { StudentModule } from './modules/student/student.module';
+import { TeacherModule } from './modules/teacher/teacher.module';
+import { SemesterModule } from './modules/semester/semester.module';
+import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -29,7 +34,12 @@ import { ClassesModule } from './modules/classes/classes.module';
     SubjectsModule,
     CurriculumsModule,
     MajorModule,
-    ClassesModule
+    ClassesModule,
+    StudentModule,
+    TeacherModule,
+    SemesterModule,
+    CourseRegistrationModule,
+    TimetableModule
   ],
   controllers: [AppController],
   providers: [

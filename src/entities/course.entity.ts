@@ -1,9 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Subject } from './subject.entity';
 import { Semester } from './semester.entity';
-import { Teacher } from '../modules/teacher/entities/teacher.entity';
+import { Teacher } from './teacher.entity';
 import { CourseSchedule } from './course-schedule.entity';
 import { Registration } from './registration.entity';
+import { SessionCourse } from './session-course.entity';
 
 @Entity('courses')
 export class Course {
@@ -55,4 +56,7 @@ export class Course {
 
     @OneToMany(() => Registration, registration => registration.course)
     registrations: Registration[];
+
+    @OneToMany(() => SessionCourse, sessionCourse => sessionCourse.course)
+    sessionCourses: SessionCourse[];
 }
