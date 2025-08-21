@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, ManyToMany, JoinTable, OneToMany } from 'typeorm';
 import { GradingFormula } from './grading-formula.entity';
+import { Faculty } from './faculty.entity';
 
 @Entity('subjects')
 export class Subject {
@@ -9,8 +10,8 @@ export class Subject {
   @Column({ length: 100 })
   name: string;
 
-  @Column({ length: 100 })
-  code: string;
+  // @Column({ length: 100 })
+  // code: string;
 
   @Column()
   credits: number;
@@ -20,6 +21,9 @@ export class Subject {
 
   @Column({ name: 'grading_formula_id' })
   gradingFormulaId: number;
+
+  @Column({ name: 'faculty_id' })
+  faculty_id: number;
 
   @CreateDateColumn()
   created_at: Date;
@@ -32,4 +36,8 @@ export class Subject {
   @ManyToOne(() => GradingFormula)
   @JoinColumn({ name: 'grading_formula_id' })
   gradingFormula: GradingFormula;
+
+  @ManyToOne(() => Faculty)
+  @JoinColumn({ name: 'faculty_id' })
+  faculty: Faculty;
 } 

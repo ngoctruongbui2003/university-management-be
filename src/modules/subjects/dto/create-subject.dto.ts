@@ -19,4 +19,8 @@ export class CreateSubjectDto {
   @IsNumber()
   @IsNotEmpty()
   gradingFormulaId: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  faculty_id: number;
 }

@@ -31,6 +31,7 @@ export class SubjectsService {
       const subject = this.subjectRepository.create(createSubjectDto);
       return await this.subjectRepository.save(subject);
     } catch (error) {
+      console.log(error);
       if (error instanceof ConflictException) {
         throw error;
       }

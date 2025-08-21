@@ -41,7 +41,7 @@ export class Course {
     // ---------------Relationships---------------
     @ManyToOne(() => Subject, subject => subject.id)
     @JoinColumn({ name: 'subject_id' })
-    subject: Subject;
+    subject: Subject; 
 
     @ManyToOne(() => Semester, semester => semester.id)
     @JoinColumn({ name: 'semester_id' })

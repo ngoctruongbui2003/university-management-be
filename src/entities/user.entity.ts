@@ -1,3 +1,4 @@
+import { UserRole } from 'src/shared/constants/enum';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, JoinColumn, ManyToOne } from 'typeorm';
 
 @Entity()
@@ -14,6 +15,9 @@ export class User {
     // @ManyToOne(() => Role, role => role.users, { nullable: false })
     // @JoinColumn({ name: 'role_id' })
     // role: Role;
+
+    @Column({ length: 100, nullable: false, default: UserRole.STUDENT })
+    role: UserRole;
 
     @Column({ length: 100, nullable: false })
     full_name: string;
