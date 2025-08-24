@@ -8,6 +8,9 @@ export class Student {
     id: number;
 
     @Column({ length: 100 })
+    student_code: string;
+
+    @Column({ length: 100 })
     full_name: string;
 
     @Column({ length: 100 })
