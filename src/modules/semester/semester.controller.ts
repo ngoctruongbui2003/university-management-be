@@ -50,7 +50,7 @@ export class SemesterController {
 
   @Get('academic-year/:academicYearId')
   async findByAcademicYear(@Param('academicYearId', ParseIntPipe) academicYearId: number) {
-    return this.semesterService.findByAcademicYear(academicYearId);
+    return await this.semesterService.findByAcademicYear(academicYearId);
   }
 
   @Get('status/:status')
