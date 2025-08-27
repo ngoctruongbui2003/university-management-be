@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Classroom } from '../../entities/classroom.entity';
 import { ClassroomPost, PostType, FileAttachment } from '../../entities/classroom-post.entity';
 import { ClassroomMember, ClassroomRole } from '../../entities/classroom-member.entity';
@@ -17,6 +17,9 @@ import {
     ClassroomResponseDto,
     PostResponseDto
 } from './dto/classroom.dto';
+import { CourseData } from 'src/shared/sample/data';
+import { Classes } from 'src/entities/classes.entity';
+import { Subject } from 'src/entities/subject.entity';
 
 @Injectable()
 export class ClassroomService {
@@ -38,6 +41,9 @@ export class ClassroomService {
         
         private fileUploadService: FileUploadService,
         private dataSource: DataSource,
+
+        @InjectRepository(Subject)
+        private subjectRepository: Repository<Subject>,
     ) {}
 
     /**
@@ -159,24 +165,101 @@ export class ClassroomService {
     /**
      * Lấy danh sách classroom của user
      */
-    async getUserClassrooms(userId: number): Promise<ClassroomResponseDto[]> {
-        const memberClassrooms = await this.memberRepository.find({
-            where: { 
-                user_id: userId, 
-                is_active: true 
-            },
-            relations: [
-                'classroom',
-                'classroom.course',
-                'classroom.course.subject',
-                'classroom.course.teacher',
-                'classroom.course.semester'
-            ]
+    async getUserClassrooms(userId: number) {
+        // const memberClassrooms = await this.memberRepository.find({
+        //     where: { 
+        //         user_id: userId, 
+        //         is_active: true 
+        //     },
+        //     relations: [
+        //         'classroom',
+        //         'classroom.course',
+        //         'classroom.course.subject',
+        //         'classroom.course.teacher',
+        //         'classroom.course.semester'
+        //     ]
+        // });
+
+        // return memberClassrooms.map(member => 
+        //     this.mapToResponseDto(member.classroom)
+        // );
+
+        const subjects = await this.subjectRepository.find({
+            where: {
+                id: In([1, 2, 3, 4, 5])
+            }
         });
 
-        return memberClassrooms.map(member => 
-            this.mapToResponseDto(member.classroom)
-        );
+        return subjects.map((subject, index) => this.generateCourseData(subject, index));
+    }
+
+    /**
+     * Tự động generate dữ liệu course từ subject
+     */
+    private generateCourseData(subject: any, index: number) {
+        const instructors = [
+            "Dr. Nguyễn Văn Ngọc",
+            "TS. Trần Thị Mai",
+            "GS. Lê Văn Hùng", 
+            "ThS. Phạm Thị Lan",
+            "PGS. Hoàng Minh Tuấn"
+        ];
+
+        const schedules = [
+            "Monday 7:00-9:30",
+            "Tuesday 13:00-15:30", 
+            "Wednesday 9:30-12:00",
+            "Thursday 15:30-18:00",
+            "Friday 7:00-9:30",
+            "Saturday 13:00-15:30"
+        ];
+
+        const locations = [
+            "C001", "C002", "C003", "C101", "C102", "C103",
+            "B201", "B202", "B301", "A101", "A102", "A201"
+        ];
+
+        const semesters = [
+            "HK1 2023-2024",
+            "HK2 2023-2024", 
+            "HK1 2024-2025",
+            "HK2 2024-2025"
+        ];
+
+        const courseTypes = ["main", "elective", "required"];
+
+        // Generate random but deterministic data based on subject id
+        const subjectId = subject.id;
+        const instructorIndex = (subjectId + index) % instructors.length;
+        const scheduleIndex = (subjectId * 2 + index) % schedules.length;
+        const locationIndex = (subjectId * 3 + index) % locations.length;
+        const semesterIndex = Math.floor(subjectId / 3) % semesters.length;
+        const typeIndex = subjectId % courseTypes.length;
+
+        // Generate realistic enrollment numbers (50-300)
+        const enrolled = 50 + ((subjectId * 47 + index * 23) % 251);
+        
+        // Generate rating (3.5-5.0)
+        const rating = 3.5 + ((subjectId * 13 + index * 7) % 16) / 10;
+        
+        // Generate section number (1-5)
+        const section = 1 + ((subjectId + index) % 5);
+
+        return {
+            id: subject.id,
+            name: subject.name,
+            code: subject.subject_code,
+            description: subject.description,
+            instructor: instructors[instructorIndex],
+            credits: subject.credits,
+            section: section,
+            schedule: schedules[scheduleIndex],
+            location: locations[locationIndex],
+            enrolled: enrolled,
+            rating: Math.round(rating * 10) / 10, // Round to 1 decimal
+            type: courseTypes[typeIndex],
+            semester: semesters[semesterIndex],
+        };
     }
 
     /**
@@ -201,6 +284,10 @@ export class ClassroomService {
         }
 
         return this.mapToResponseDto(classroom);
+    }
+
+    async getClassroomDetail(classroomId: number, userId: number): Promise<any> {
+        
     }
 
     /**

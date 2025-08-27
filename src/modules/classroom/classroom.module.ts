@@ -9,6 +9,7 @@ import { ClassroomMember } from '../../entities/classroom-member.entity';
 import { Course } from '../../entities/course.entity';
 import { User } from '../../entities/user.entity';
 import { FileUploadModule } from '../file-upload/file-upload.module';
+import { Subject } from 'src/entities/subject.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { FileUploadModule } from '../file-upload/file-upload.module';
       ClassroomMember,
       Course,
       User,
+      Subject
     ]),
     FileUploadModule,
     MulterModule.register({

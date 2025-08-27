@@ -33,8 +33,14 @@ export class StudentService {
     );
 
     const student = this.studentRepository.create({
-      ...createStudentDto,
+      full_name: createStudentDto.full_name,
+      email: createStudentDto.email,
+      phone: createStudentDto.phone,
+      address: createStudentDto.address,
+      gender: createStudentDto.gender,
+      birth_date: createStudentDto.birth_date,
       student_code: studentCode,
+      classes: classEntity, // Gán object Classes vào relationship field
     });
     
     return await this.studentRepository.save(student);
