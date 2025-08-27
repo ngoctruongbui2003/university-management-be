@@ -46,9 +46,8 @@ export class ClassroomController {
      */
     @Get('my-classrooms')
     async getMyClassrooms(
-        @Query('user_id', ParseIntPipe) userId: number
     ) {
-        return await this.classroomService.getUserClassrooms(userId);
+        return await this.classroomService.getUserClassrooms();
     }
 
     /**

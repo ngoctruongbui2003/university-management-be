@@ -165,7 +165,7 @@ export class ClassroomService {
     /**
      * Lấy danh sách classroom của user
      */
-    async getUserClassrooms(userId: number) {
+    async getUserClassrooms() {
         // const memberClassrooms = await this.memberRepository.find({
         //     where: { 
         //         user_id: userId, 
