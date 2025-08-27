@@ -184,11 +184,13 @@ export class ClassroomService {
         //     this.mapToResponseDto(member.classroom)
         // );
 
+        
         const subjects = await this.subjectRepository.find({
             where: {
                 id: In([1, 2, 3, 4, 5])
             }
         });
+        console.log("subjects", subjects);
 
         return subjects.map((subject, index) => this.generateCourseData(subject, index));
     }
@@ -287,7 +289,37 @@ export class ClassroomService {
     }
 
     async getClassroomDetail(classroomId: number, userId: number): Promise<any> {
-        
+        const subject = await this.subjectRepository.findOne({
+            where: { id: classroomId }
+        });
+        const classroom = this.generateCourseData(subject, classroomId - 1);
+        console.log("classroom", classroom);
+        return [
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 1,
+                name: "Section 1"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 2,
+                name: "Section 2"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 3,
+                name: "Section 3"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 4,
+                name: "Section 4"
+            }
+        ]
     }
 
     /**

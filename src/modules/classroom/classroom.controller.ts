@@ -68,12 +68,11 @@ export class ClassroomController {
      * Lấy chi tiết classroom
      * GET /classrooms/:id
      */
-    @Get(':id')
+    @Get('my-classrooms/:id')
     async getClassroomById(
-        @Param('id', ParseIntPipe) classroomId: number,
-        @Query('user_id', ParseIntPipe) userId: number
+        @Param('id', ParseIntPipe) classroomId: number
     ) {
-        return await this.classroomService.getClassroomById(classroomId, userId);
+        return await this.classroomService.getClassroomDetail(classroomId, 0);
     }
 
     /**
