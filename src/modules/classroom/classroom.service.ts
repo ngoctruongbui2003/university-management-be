@@ -318,6 +318,42 @@ export class ClassroomService {
                 course: classroom,
                 section: 4,
                 name: "Section 4"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 5,
+                name: "Section 5"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 6,
+                name: "Section 6"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 7,
+                name: "Section 7"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 8,
+                name: "Section 8"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 9,
+                name: "Section 9"
+            },
+            {
+                id: classroom.id,
+                course: classroom,
+                section: 10,
+                name: "Section 10"
             }
         ]
     }
