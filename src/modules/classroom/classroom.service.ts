@@ -454,20 +454,21 @@ export class ClassroomService {
             order: { createdAt: 'DESC' }
         });
 
-        // Initialize default 10 sections
-        const sessionPosts = {};
+        // Initialize default 10 sections as array
+        const sessionPosts = [];
         for (let i = 1; i <= 10; i++) {
-            sessionPosts[i] = {
+            sessionPosts.push({
                 id: i,
                 name: `Section ${i}`,
                 posts: []
-            };
+            });
         }
 
         // Add posts to their respective sections
         for (const section of classroomSections) {
             if (section.classSectionId && section.classSectionId <= 10) {
-                sessionPosts[section.classSectionId].posts.push(section);
+                // Array is 0-based, so subtract 1 from section ID
+                sessionPosts[section.classSectionId - 1].posts.push(section);
             }
         }
 
