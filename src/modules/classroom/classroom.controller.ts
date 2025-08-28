@@ -105,6 +105,13 @@ export class ClassroomController {
         return await this.classroomService.getClassroomPosts(classroomId);
     }
 
+    @Get(':id/posts-by-session')
+    async getClassroomPostsBySession(
+        @Param('id', ParseIntPipe) classroomId: number,
+    ) {
+        return await this.classroomService.getClassroomPostsBySession(classroomId);
+    }
+
     /**
      * Lấy chi tiết một post cụ thể
      * GET /classrooms/:id/posts/:postId

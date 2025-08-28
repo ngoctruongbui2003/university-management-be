@@ -443,6 +443,38 @@ export class ClassroomService {
     }
 
     /**
+     * Lấy danh sách posts trong classroom nhưng gộp session lại
+     */
+    async getClassroomPostsBySession(classroomId: number) {
+        // Kiểm tra quyền truy cập
+        // await this.validateMemberAccess(classroomId, userId);
+
+        const classroomSections = await this.classroomSectionRepository.find({
+            where: { classroomId: classroomId },
+            order: { createdAt: 'DESC' }
+        });
+
+        // Initialize default 10 sections
+        const sessionPosts = {};
+        for (let i = 1; i <= 10; i++) {
+            sessionPosts[i] = {
+                id: i,
+                name: `Section ${i}`,
+                posts: []
+            };
+        }
+
+        // Add posts to their respective sections
+        for (const section of classroomSections) {
+            if (section.classSectionId && section.classSectionId <= 10) {
+                sessionPosts[section.classSectionId].posts.push(section);
+            }
+        }
+
+        return sessionPosts;
+    }
+
+    /**
      * Lấy chi tiết một post cụ thể
      */
     async getPostDetail(classroomId: number, postId: number) {
