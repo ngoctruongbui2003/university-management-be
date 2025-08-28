@@ -3,9 +3,9 @@ import { Classroom } from './classroom.entity';
 import { User } from './user.entity';
 
 export enum ClassroomRole {
-    TEACHER = 'teacher',
-    STUDENT = 'student',
-    ASSISTANT = 'assistant'
+    TEACHER = 'Teacher',
+    STUDENT = 'Student',
+    ASSISTANT = 'Assistant'
 }
 
 @Entity('classroom_members')
@@ -33,10 +33,6 @@ export class ClassroomMember {
     is_active: boolean;
 
     // ---------------Relationships---------------
-    @ManyToOne(() => Classroom, classroom => classroom.id)
-    @JoinColumn({ name: 'classroom_id' })
-    classroom: Classroom;
-
     @ManyToOne(() => User, user => user.id)
     @JoinColumn({ name: 'user_id' })
     user: User;

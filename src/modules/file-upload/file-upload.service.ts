@@ -1,11 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { extname, join } from 'path';
-import { writeFile, mkdir, existsSync } from 'fs';
-import { promisify } from 'util';
-import { v4 as uuidv4 } from 'uuid';
-
-const writeFileAsync = promisify(writeFile);
-const mkdirAsync = promisify(mkdir);
+import { MinioService, MinioUploadResult } from '../../shared/minio.service';
 
 export interface UploadResult {
     filename: string;
@@ -14,11 +8,11 @@ export interface UploadResult {
     file_size: number;
     mime_type: string;
     uploaded_at: string;
+    object_name: string;
 }
 
 @Injectable()
 export class FileUploadService {
-    private readonly uploadPath = 'uploads';
     private readonly maxFileSize = 10 * 1024 * 1024; // 10MB
     private readonly allowedMimeTypes = [
         'image/jpeg',
@@ -41,8 +35,10 @@ export class FileUploadService {
         'application/x-rar-compressed'
     ];
 
+    constructor(private readonly minioService: MinioService) {}
+
     /**
-     * Upload file từ buffer
+     * Upload file từ buffer using MinIO
      */
     async uploadFile(
         buffer: Buffer,
@@ -60,37 +56,28 @@ export class FileUploadService {
             throw new BadRequestException(`File type ${mimeType} is not allowed`);
         }
 
-        // Generate unique filename
-        const fileExtension = extname(originalName);
-        const filename = `${uuidv4()}${fileExtension}`;
-        
-        // Create folder structure: uploads/classroom/2024/01/
-        const currentDate = new Date();
-        const year = currentDate.getFullYear();
-        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-        
-        const folderPath = join(this.uploadPath, subfolder, String(year), month);
-        const filePath = join(folderPath, filename);
+        // Upload to MinIO
+        const minioResult = await this.minioService.uploadFile(
+            buffer,
+            originalName,
+            mimeType,
+            subfolder
+        );
 
-        // Ensure directory exists
-        await this.ensureDirectoryExists(folderPath);
-
-        // Write file
-        await writeFileAsync(filePath, buffer);
-
-        // Return upload result
+        // Return upload result in expected format
         return {
-            filename,
-            original_name: originalName,
-            file_url: `/${filePath.replace(/\\/g, '/')}`, // Normalize path separators
-            file_size: buffer.length,
-            mime_type: mimeType,
-            uploaded_at: new Date().toISOString()
+            filename: minioResult.filename,
+            original_name: minioResult.originalName,
+            file_url: minioResult.fileUrl,
+            file_size: minioResult.fileSize,
+            mime_type: minioResult.mimeType,
+            uploaded_at: minioResult.uploadedAt,
+            object_name: minioResult.objectName
         };
     }
 
     /**
-     * Upload multiple files
+     * Upload multiple files using MinIO
      */
     async uploadMultipleFiles(
         files: Array<{
@@ -100,35 +87,29 @@ export class FileUploadService {
         }>,
         subfolder: string = 'general'
     ): Promise<UploadResult[]> {
-        const results = [];
-        
+        // Validate all files first
         for (const file of files) {
-            const result = await this.uploadFile(
-                file.buffer,
-                file.originalName,
-                file.mimeType,
-                subfolder
-            );
-            results.push(result);
+            if (file.buffer.length > this.maxFileSize) {
+                throw new BadRequestException(`File ${file.originalName} size exceeds limit of ${this.maxFileSize / 1024 / 1024}MB`);
+            }
+            if (!this.allowedMimeTypes.includes(file.mimeType)) {
+                throw new BadRequestException(`File type ${file.mimeType} is not allowed for ${file.originalName}`);
+            }
         }
 
-        return results;
-    }
+        // Upload to MinIO
+        const minioResults = await this.minioService.uploadMultipleFiles(files, subfolder);
 
-    /**
-     * Đảm bảo thư mục tồn tại
-     */
-    private async ensureDirectoryExists(dirPath: string): Promise<void> {
-        if (!existsSync(dirPath)) {
-            await mkdirAsync(dirPath, { recursive: true });
-        }
-    }
-
-    /**
-     * Get file URL for serving
-     */
-    getFileUrl(filename: string, subfolder: string = 'general'): string {
-        return `/uploads/${subfolder}/${filename}`;
+        // Return upload results in expected format
+        return minioResults.map(result => ({
+            filename: result.filename,
+            original_name: result.originalName,
+            file_url: result.fileUrl,
+            file_size: result.fileSize,
+            mime_type: result.mimeType,
+            uploaded_at: result.uploadedAt,
+            object_name: result.objectName
+        }));
     }
 
     /**
@@ -174,5 +155,33 @@ export class FileUploadService {
      */
     getAssignmentFolder(classroomId: number, assignmentId: number): string {
         return `classroom/${classroomId}/assignments/${assignmentId}`;
+    }
+
+    /**
+     * Get file URL for serving from MinIO
+     */
+    async getFileUrl(objectName: string): Promise<string> {
+        return await this.minioService.getFileUrl(objectName);
+    }
+
+    /**
+     * Delete file from MinIO
+     */
+    async deleteFile(objectName: string): Promise<void> {
+        return await this.minioService.deleteFile(objectName);
+    }
+
+    /**
+     * Check if file exists in MinIO
+     */
+    async fileExists(objectName: string): Promise<boolean> {
+        return await this.minioService.fileExists(objectName);
+    }
+
+    /**
+     * Get file stream from MinIO
+     */
+    async getFileStream(objectName: string) {
+        return await this.minioService.getFileStream(objectName);
     }
 }

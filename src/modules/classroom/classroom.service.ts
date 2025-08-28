@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, Not, IsNull } from 'typeorm';
 import { Classroom } from '../../entities/classroom.entity';
 import { ClassroomPost, PostType, FileAttachment } from '../../entities/classroom-post.entity';
 import { ClassroomMember, ClassroomRole } from '../../entities/classroom-member.entity';
 import { Course } from '../../entities/course.entity';
 import { User } from '../../entities/user.entity';
+import { ClassroomStudentGrade } from '../../entities/classroom-student-grade.entity';
 import { FileUploadService } from '../file-upload/file-upload.service';
 import { GradesService } from '../grades/grades.service';
 import { 
@@ -17,9 +18,16 @@ import {
     ClassroomResponseDto,
     PostResponseDto
 } from './dto/classroom.dto';
+import { 
+    CreateClassroomStudentGradeDto, 
+    UpdateClassroomStudentGradeDto, 
+    ClassroomStudentGradeResponseDto 
+} from './dto/classroom-student-grade.dto';
 import { CourseData } from 'src/shared/sample/data';
 import { Classes } from 'src/entities/classes.entity';
 import { Subject } from 'src/entities/subject.entity';
+import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
+import { ClassroomSection } from 'src/entities/classsroom-section.entity';
 
 @Injectable()
 export class ClassroomService {
@@ -39,11 +47,17 @@ export class ClassroomService {
         @InjectRepository(User)
         private userRepository: Repository<User>,
         
+        @InjectRepository(ClassroomStudentGrade)
+        private gradeRepository: Repository<ClassroomStudentGrade>,
+        
         private fileUploadService: FileUploadService,
         private dataSource: DataSource,
 
         @InjectRepository(Subject)
         private subjectRepository: Repository<Subject>,
+
+        @InjectRepository(ClassroomSection)
+        private classroomSectionRepository: Repository<ClassroomSection>,
     ) {}
 
     /**
@@ -190,7 +204,6 @@ export class ClassroomService {
                 id: In([1, 2, 3, 4, 5])
             }
         });
-        console.log("subjects", subjects);
 
         return subjects.map((subject, index) => this.generateCourseData(subject, index));
     }
@@ -293,7 +306,6 @@ export class ClassroomService {
             where: { id: classroomId }
         });
         const classroom = this.generateCourseData(subject, classroomId - 1);
-        console.log("classroom", classroom);
         return [
             {
                 id: classroom.id,
@@ -363,65 +375,245 @@ export class ClassroomService {
      */
     async createPost(
         classroomId: number, 
-        createDto: CreatePostDto, 
-        creatorId: number, 
-        files?: Express.Multer.File[]
-    ): Promise<PostResponseDto> {
-        // Kiểm tra quyền tạo post (teacher hoặc assistant)
-        await this.validateTeacherAccess(classroomId, creatorId);
+        createDto: CreateClassroomSectionDto,
+        file?: Express.Multer.File
+    ) {
+        // // Kiểm tra quyền tạo post (teacher hoặc assistant)
+        // await this.validateTeacherAccess(classroomId, creatorId);
 
-        let attachments: FileAttachment[] = [];
+        let uploadedFile = null;
+        let filePath = null;
 
-        // Upload files nếu có
-        if (files && files.length > 0) {
-            const folderPath = this.fileUploadService.getClassroomFolder(classroomId);
-            
-            for (const file of files) {
-                this.fileUploadService.validateFile(file);
-                
-                const uploadResult = await this.fileUploadService.uploadFile(
+        // Handle single file upload if file is provided
+        if (file) {
+            try {
+                const subfolder = this.fileUploadService.getClassroomFolder(classroomId);
+                uploadedFile = await this.fileUploadService.uploadFile(
                     file.buffer,
                     file.originalname,
                     file.mimetype,
-                    folderPath
+                    subfolder
                 );
-                
-                attachments.push(uploadResult);
+
+                // Save file information as JSON string
+                filePath = JSON.stringify({
+                    filename: uploadedFile.filename,
+                    originalName: uploadedFile.original_name,
+                    fileUrl: uploadedFile.file_url,
+                    fileSize: uploadedFile.file_size,
+                    mimeType: uploadedFile.mime_type,
+                    uploadedAt: uploadedFile.uploaded_at,
+                    objectName: uploadedFile.object_name
+                });
+            } catch (error) {
+                throw new Error(`Failed to upload file: ${error.message}`);
             }
         }
 
-        const post = this.postRepository.create({
-            classroom_id: classroomId,
-            title: createDto.title,
+        const classroomSection = this.classroomSectionRepository.create({
+            classroomId: classroomId,
+            classSectionId: createDto.classSectionId ? parseInt(createDto.classSectionId.toString()) : null,
+            material: createDto.material,
+            type: createDto.type,
+            deadline: createDto.deadline,
             content: createDto.content,
-            post_type: createDto.post_type || PostType.ANNOUNCEMENT,
-            attachments: attachments,
-            created_by: creatorId,
-            is_pinned: createDto.is_pinned || false,
-            view_count: 0
+            files: filePath
         });
 
-        const savedPost = await this.postRepository.save(post);
-        return this.mapPostToResponseDto(savedPost);
+        const savedClassroomSection = await this.classroomSectionRepository.save(classroomSection);
+
+        return {
+            ...savedClassroomSection,
+            uploadedFile: uploadedFile
+        };
     }
 
     /**
      * Lấy danh sách posts trong classroom
      */
-    async getClassroomPosts(classroomId: number, userId: number): Promise<PostResponseDto[]> {
+    async getClassroomPosts(classroomId: number) {
         // Kiểm tra quyền truy cập
-        await this.validateMemberAccess(classroomId, userId);
+        // await this.validateMemberAccess(classroomId, userId);
 
-        const posts = await this.postRepository.find({
-            where: { classroom_id: classroomId },
-            relations: ['creator', 'classroom'],
-            order: { 
-                is_pinned: 'DESC',
-                created_at: 'DESC' 
+        const classroomSections = await this.classroomSectionRepository.find({
+            where: { classroomId: classroomId },
+            order: { createdAt: 'DESC' }
+        });
+        return classroomSections;
+    }
+
+    /**
+     * Lấy chi tiết một post cụ thể
+     */
+    async getPostDetail(classroomId: number, postId: number) {
+        // Kiểm tra quyền truy cập
+        // await this.validateMemberAccess(classroomId, userId);
+
+        const classroomSection = await this.classroomSectionRepository.findOne({
+            where: { 
+                id: postId,
+                classroomId: classroomId 
             }
         });
 
-        return posts.map(post => this.mapPostToResponseDto(post));
+        if (!classroomSection) {
+            throw new NotFoundException('Post not found in this classroom');
+        }
+
+        // Parse file information if exists
+        let fileInfo = null;
+        if (classroomSection.files) {
+            try {
+                fileInfo = JSON.parse(classroomSection.files);
+            } catch (error) {
+                console.error('Error parsing file info:', error);
+            }
+        }
+
+        return {
+            ...classroomSection,
+            fileInfo: fileInfo
+        };
+    }
+
+    /**
+     * Download file từ post
+     */
+    async downloadPostFile(classroomId: number, postId: number, res: any) {
+        // Lấy thông tin post
+        const classroomSection = await this.classroomSectionRepository.findOne({
+            where: { 
+                id: postId,
+                classroomId: classroomId 
+            }
+        });
+
+        if (!classroomSection) {
+            throw new NotFoundException('Post not found in this classroom');
+        }
+
+        if (!classroomSection.files) {
+            throw new NotFoundException('No file attached to this post');
+        }
+
+        let fileInfo;
+        console.log(classroomSection.files);
+        try {
+            fileInfo = JSON.parse(classroomSection.files);
+        } catch (error) {
+            throw new BadRequestException('Invalid file information');
+        }
+
+        try {
+            let objectName = fileInfo.objectName;
+            
+            // Nếu không có objectName (data cũ), extract từ fileUrl
+            if (!objectName) {
+                try {
+                    const url = new URL(fileInfo.fileUrl);
+                    const pathWithoutQuery = url.pathname;
+                    
+                    // Remove bucket name từ path: /university-files/classroom/1/2025/08/filename.doc
+                    if (pathWithoutQuery.startsWith('/university-files/')) {
+                        objectName = pathWithoutQuery.substring('/university-files/'.length);
+                    } else {
+                        // Fallback: remove leading slash
+                        objectName = pathWithoutQuery.substring(1);
+                    }
+                } catch (urlError) {
+                    throw new BadRequestException('Cannot extract object name from file URL');
+                }
+            }
+            
+            if (!objectName) {
+                throw new BadRequestException('Object name not found in file information');
+            }
+            
+            // Get file stream từ MinIO
+            const fileStream = await this.fileUploadService.getFileStream(objectName);
+            
+            // Set headers cho download
+            res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
+            res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileInfo.originalName)}"`);
+            if (fileInfo.fileSize) {
+                res.setHeader('Content-Length', fileInfo.fileSize.toString());
+            }
+            
+            // Pipe stream trực tiếp tới response
+            fileStream.pipe(res);
+            
+        } catch (error) {
+            throw new BadRequestException(`Failed to download file: ${error.message}`);
+        }
+    }
+
+    /**
+     * Lấy tất cả file trong classroom
+     */
+    async getClassroomFiles(classroomId: number) {
+        // Lấy tất cả posts có file trong classroom
+        const classroomSections = await this.classroomSectionRepository.find({
+            where: { 
+                classroomId: classroomId,
+                files: Not(IsNull()) // Chỉ lấy posts có file
+            },
+            order: { createdAt: 'DESC' }
+        });
+
+        const filesList = [];
+
+        for (const section of classroomSections) {
+            if (section.files) {
+                try {
+                    const fileInfo = JSON.parse(section.files);
+                    
+                    // Extract objectName nếu không có (backward compatibility)
+                    let objectName = fileInfo.objectName;
+                    if (!objectName) {
+                        try {
+                            const url = new URL(fileInfo.fileUrl);
+                            const pathWithoutQuery = url.pathname;
+                            if (pathWithoutQuery.startsWith('/university-files/')) {
+                                objectName = pathWithoutQuery.substring('/university-files/'.length);
+                            } else {
+                                objectName = pathWithoutQuery.substring(1);
+                            }
+                        } catch (urlError) {
+                            console.error('Error extracting object name:', urlError);
+                            continue;
+                        }
+                    }
+
+                    filesList.push({
+                        postId: section.id,
+                        postType: section.type,
+                        postMaterial: section.material,
+                        postContent: section.content,
+                        postDeadline: section.deadline,
+                        postCreatedAt: section.createdAt,
+                        file: {
+                            filename: fileInfo.filename,
+                            originalName: fileInfo.originalName,
+                            fileUrl: fileInfo.fileUrl,
+                            fileSize: fileInfo.fileSize,
+                            mimeType: fileInfo.mimeType,
+                            uploadedAt: fileInfo.uploadedAt,
+                            objectName: objectName,
+                            downloadUrl: `/classrooms/${classroomId}/posts/${section.id}/download`
+                        }
+                    });
+                } catch (parseError) {
+                    console.error('Error parsing file info for section', section.id, parseError);
+                    continue;
+                }
+            }
+        }
+
+        return {
+            classroomId: classroomId,
+            totalFiles: filesList.length,
+            files: filesList
+        };
     }
 
     /**
@@ -513,8 +705,8 @@ export class ClassroomService {
     /**
      * Lấy members của classroom với role info
      */
-    async getClassroomMembers(classroomId: number, userId: number): Promise<any> {
-        await this.validateMemberAccess(classroomId, userId);
+    async getClassroomMembers(classroomId: number): Promise<any> {
+        // await this.validateMemberAccess(classroomId, userId);
 
         const members = await this.memberRepository.find({
             where: { classroom_id: classroomId, is_active: true },
@@ -522,48 +714,19 @@ export class ClassroomService {
             order: { role: 'ASC', joined_at: 'ASC' }
         });
 
-        const groupedMembers = {
-            teachers: members.filter(m => m.role === ClassroomRole.TEACHER),
-            assistants: members.filter(m => m.role === ClassroomRole.ASSISTANT),
-            students: members.filter(m => m.role === ClassroomRole.STUDENT)
-        };
-
-        return {
-            total_count: members.length,
-            teachers: groupedMembers.teachers.map(m => ({
-                id: m.id,
-                user_id: m.user_id,
-                role: m.role,
-                joined_at: m.joined_at,
-                user: {
-                    id: m.user.id,
-                    full_name: m.user.full_name,
-                    email: m.user.email
-                }
-            })),
-            assistants: groupedMembers.assistants.map(m => ({
-                id: m.id,
-                user_id: m.user_id,
-                role: m.role,
-                joined_at: m.joined_at,
-                user: {
-                    id: m.user.id,
-                    full_name: m.user.full_name,
-                    email: m.user.email
-                }
-            })),
-            students: groupedMembers.students.map(m => ({
-                id: m.id,
-                user_id: m.user_id,
-                role: m.role,
-                joined_at: m.joined_at,
-                user: {
-                    id: m.user.id,
-                    full_name: m.user.full_name,
-                    email: m.user.email
-                }
-            }))
-        };
+        return members.map(member => ({
+            id: member.id,
+            user_id: member.user_id,
+            role: member.role,
+            joined_at: member.joined_at,
+            is_active: member.is_active,
+            user: {
+                id: member.user.id,
+                username: member.user.username,
+                full_name: member.user.full_name,
+                email: member.user.email,
+            }
+        }));
     }
 
     /**
@@ -662,6 +825,149 @@ export class ClassroomService {
                 id: post.classroom?.id,
                 name: post.classroom?.name,
                 class_code: post.classroom?.class_code
+            }
+        };
+    }
+
+    /**
+     * Lấy điểm của tất cả học sinh trong classroom
+     */
+    async getClassroomGrades(classroomId: number): Promise<ClassroomStudentGradeResponseDto[]> {
+        // Lấy tất cả học sinh trong classroom
+        const students = await this.memberRepository.find({
+            where: { 
+                classroom_id: classroomId,
+                role: ClassroomRole.STUDENT,
+                is_active: true
+            },
+            relations: ['user']
+        });
+
+        const grades = [];
+
+        for (const student of students) {
+            // Tìm điểm của học sinh này
+            let grade = await this.gradeRepository.findOne({
+                where: {
+                    classroomId: classroomId,
+                    userId: student.user_id
+                },
+                relations: ['user']
+            });
+
+            // Nếu chưa có record điểm, tạo object rỗng
+            if (!grade) {
+                grades.push({
+                    id: null,
+                    classroomId: classroomId,
+                    userId: student.user_id,
+                    qt1Grade: null,
+                    qt2Grade: null,
+                    midtermGrade: null,
+                    finalGrade: null,
+                    createdAt: null,
+                    updatedAt: null,
+                    user: {
+                        id: student.user.id,
+                        username: student.user.username,
+                        full_name: student.user.full_name,
+                        email: student.user.email
+                    }
+                });
+            } else {
+                grades.push({
+                    id: grade.id,
+                    classroomId: grade.classroomId,
+                    userId: grade.userId,
+                    qt1Grade: grade.qt1Grade,
+                    qt2Grade: grade.qt2Grade,
+                    midtermGrade: grade.midtermGrade,
+                    finalGrade: grade.finalGrade,
+                    createdAt: grade.createdAt,
+                    updatedAt: grade.updatedAt,
+                    user: {
+                        id: grade.user.id,
+                        username: grade.user.username,
+                        full_name: grade.user.full_name,
+                        email: grade.user.email
+                    }
+                });
+            }
+        }
+
+        return grades;
+    }
+
+    /**
+     * Cập nhật điểm cho một học sinh
+     */
+    async updateStudentGrade(
+        classroomId: number, 
+        userId: number, 
+        updateDto: UpdateClassroomStudentGradeDto
+    ): Promise<ClassroomStudentGradeResponseDto> {
+        // Kiểm tra học sinh có trong classroom không
+        const studentMember = await this.memberRepository.findOne({
+            where: {
+                classroom_id: classroomId,
+                user_id: userId,
+                role: ClassroomRole.STUDENT,
+                is_active: true
+            }
+        });
+
+        if (!studentMember) {
+            throw new NotFoundException('Student not found in this classroom');
+        }
+
+        // Tìm hoặc tạo mới record điểm
+        let grade = await this.gradeRepository.findOne({
+            where: {
+                classroomId: classroomId,
+                userId: userId
+            }
+        });
+
+        if (!grade) {
+            // Tạo mới nếu chưa có
+            grade = this.gradeRepository.create({
+                classroomId: classroomId,
+                userId: userId,
+                qt1Grade: updateDto.qt1Grade,
+                qt2Grade: updateDto.qt2Grade,
+                midtermGrade: updateDto.midtermGrade,
+                finalGrade: updateDto.finalGrade
+            });
+        } else {
+            // Cập nhật nếu đã có
+            if (updateDto.qt1Grade !== undefined) grade.qt1Grade = updateDto.qt1Grade;
+            if (updateDto.qt2Grade !== undefined) grade.qt2Grade = updateDto.qt2Grade;
+            if (updateDto.midtermGrade !== undefined) grade.midtermGrade = updateDto.midtermGrade;
+            if (updateDto.finalGrade !== undefined) grade.finalGrade = updateDto.finalGrade;
+        }
+
+        const savedGrade = await this.gradeRepository.save(grade);
+
+        // Lấy thông tin user
+        const user = await this.userRepository.findOne({
+            where: { id: userId }
+        });
+
+        return {
+            id: savedGrade.id,
+            classroomId: savedGrade.classroomId,
+            userId: savedGrade.userId,
+            qt1Grade: savedGrade.qt1Grade,
+            qt2Grade: savedGrade.qt2Grade,
+            midtermGrade: savedGrade.midtermGrade,
+            finalGrade: savedGrade.finalGrade,
+            createdAt: savedGrade.createdAt,
+            updatedAt: savedGrade.updatedAt,
+            user: {
+                id: user.id,
+                username: user.username,
+                full_name: user.full_name,
+                email: user.email
             }
         };
     }

@@ -12,8 +12,11 @@ import {
     UploadedFiles,
     HttpStatus,
     HttpCode,
+    UploadedFile,
+    Res,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ClassroomService } from './classroom.service';
 import {
     CreateClassroomDto,
@@ -22,6 +25,8 @@ import {
     UpdatePostDto,
     JoinClassroomDto
 } from './dto/classroom.dto';
+import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
+import { UpdateClassroomStudentGradeDto } from './dto/classroom-student-grade.dto';
 
 @Controller('classrooms')
 export class ClassroomController {
@@ -79,15 +84,14 @@ export class ClassroomController {
      * POST /classrooms/:id/posts
      */
     @Post(':id/posts')
-    @UseInterceptors(FilesInterceptor('files', 5)) // Max 5 files
+    @UseInterceptors(FileInterceptor('file')) // chỉ 1 file
     @HttpCode(HttpStatus.CREATED)
     async createPost(
         @Param('id', ParseIntPipe) classroomId: number,
-        @Body() createDto: CreatePostDto,
-        @Query('creator_id', ParseIntPipe) creatorId: number,
-        @UploadedFiles() files?
+        @Body() createDto: CreateClassroomSectionDto,
+        @UploadedFile() file?: Express.Multer.File, // khác UploadedFiles
     ) {
-        return await this.classroomService.createPost(classroomId, createDto, creatorId, files);
+        return await this.classroomService.createPost(classroomId, createDto, file);
     }
 
     /**
@@ -97,9 +101,44 @@ export class ClassroomController {
     @Get(':id/posts')
     async getClassroomPosts(
         @Param('id', ParseIntPipe) classroomId: number,
-        @Query('user_id', ParseIntPipe) userId: number
     ) {
-        return await this.classroomService.getClassroomPosts(classroomId, userId);
+        return await this.classroomService.getClassroomPosts(classroomId);
+    }
+
+    /**
+     * Lấy chi tiết một post cụ thể
+     * GET /classrooms/:id/posts/:postId
+     */
+    @Get(':id/posts/:postId')
+    async getPostDetail(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Param('postId', ParseIntPipe) postId: number,
+    ) {
+        return await this.classroomService.getPostDetail(classroomId, postId);
+    }
+
+    /**
+     * Download file từ post
+     * GET /classrooms/:id/posts/:postId/download
+     */
+    @Get(':id/posts/:postId/download')
+    async downloadPostFile(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Param('postId', ParseIntPipe) postId: number,
+        @Res() res: Response,
+    ) {
+        return await this.classroomService.downloadPostFile(classroomId, postId, res);
+    }
+
+    /**
+     * Lấy tất cả file trong classroom
+     * GET /classrooms/:id/files
+     */
+    @Get(':id/files')
+    async getClassroomFiles(
+        @Param('id', ParseIntPipe) classroomId: number,
+    ) {
+        return await this.classroomService.getClassroomFiles(classroomId);
     }
 
     /**
@@ -134,8 +173,31 @@ export class ClassroomController {
     @Get(':id/members')
     async getClassroomMembers(
         @Param('id', ParseIntPipe) classroomId: number,
-        @Query('user_id', ParseIntPipe) userId: number
     ) {
-        return await this.classroomService.getClassroomMembers(classroomId, userId);
+        return await this.classroomService.getClassroomMembers(classroomId);
+    }
+
+    /**
+     * Lấy điểm của tất cả học sinh trong classroom
+     * GET /classrooms/:id/grades
+     */
+    @Get(':id/grades')
+    async getClassroomGrades(
+        @Param('id', ParseIntPipe) classroomId: number,
+    ) {
+        return await this.classroomService.getClassroomGrades(classroomId);
+    }
+
+    /**
+     * Cập nhật điểm cho một học sinh
+     * PUT /classrooms/:id/grades/:userId
+     */
+    @Put(':id/grades/:userId')
+    async updateStudentGrade(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Param('userId', ParseIntPipe) userId: number,
+        @Body() updateDto: UpdateClassroomStudentGradeDto,
+    ) {
+        return await this.classroomService.updateStudentGrade(classroomId, userId, updateDto);
     }
 }

@@ -19,5 +19,13 @@ export const config = {
         secret: process.env.JWT_SECRET || "",
         expiresInAccess: process.env.JWT_EXPIRES_IN_ACCESS || '1h',
         expiresInRefresh: process.env.JWT_EXPIRES_IN_REFRESH || '7d',
+    },
+    minio: {
+        endPoint: process.env.MINIO_ENDPOINT || '103.56.162.192',
+        port: parseInt(process.env.MINIO_PORT) || 9990,
+        useSSL: process.env.MINIO_USE_SSL === 'true' || false,
+        accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
+        secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+        bucketName: process.env.MINIO_BUCKET_NAME || 'university-files',
     }
 }

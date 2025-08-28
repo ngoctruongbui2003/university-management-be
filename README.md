@@ -32,6 +32,85 @@
 $ npm install
 ```
 
+## Environment Configuration
+
+Create a `.env` file in the root directory with the following configuration:
+
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=password
+DB_NAME=university_management
+TYPEORM_SYNCHRONIZE=false
+TYPEORM_LOGGING=false
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN_ACCESS=1h
+JWT_EXPIRES_IN_REFRESH=7d
+
+# MinIO Configuration (File Storage)
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=university-files
+
+# Application Configuration
+PORT=3000
+```
+
+## MinIO Setup
+
+This application uses MinIO for file storage. To set up MinIO:
+
+### Using Docker (Recommended)
+
+```bash
+docker run -p 9000:9000 -p 9001:9001 \
+  --name minio \
+  -e "MINIO_ROOT_USER=minioadmin" \
+  -e "MINIO_ROOT_PASSWORD=minioadmin" \
+  -v /mnt/data:/data \
+  quay.io/minio/minio server /data --console-address ":9001"
+```
+
+### Using Docker Compose
+
+Add this to your `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+services:
+  minio:
+    image: quay.io/minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+
+volumes:
+  minio_data:
+```
+
+### Access MinIO Console
+
+After starting MinIO, you can access the web console at:
+- URL: http://localhost:9001
+- Username: minioadmin
+- Password: minioadmin
+
+The application will automatically create the `university-files` bucket on startup.
+
 ## Compile and run the project
 
 ```bash

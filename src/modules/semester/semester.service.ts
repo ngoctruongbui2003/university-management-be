@@ -68,7 +68,6 @@ export class SemesterService {
   }
 
   async findByAcademicYear(academicYearId: number): Promise<Semester[]> {
-    console.log(academicYearId);
     return await this.semesterRepository.find({
       where: { academicYear: { id: academicYearId } },
       order: { start_date: 'ASC' },
