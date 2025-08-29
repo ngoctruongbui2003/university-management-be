@@ -213,11 +213,11 @@ export class ClassroomService {
      */
     private generateCourseData(subject: any, index: number) {
         const instructors = [
-            "Dr. Nguyễn Văn Ngọc",
-            "TS. Trần Thị Mai",
-            "GS. Lê Văn Hùng", 
-            "ThS. Phạm Thị Lan",
-            "PGS. Hoàng Minh Tuấn"
+            "Mrs Trần Thị Ngọc",
+            "Mrs Trần Thị Ngọc",
+            "Mrs Trần Thị Ngọc", 
+            "Mrs Trần Thị Ngọc",
+            "Mrs Trần Thị Ngọc"
         ];
 
         const schedules = [
@@ -235,10 +235,10 @@ export class ClassroomService {
         ];
 
         const semesters = [
-            "HK1 2023-2024",
-            "HK2 2023-2024", 
-            "HK1 2024-2025",
-            "HK2 2024-2025"
+            "HK1 2025-2026",
+            "HK1 2025-2026", 
+            "HK1 2025-2026",
+            "HK1 2025-2026"
         ];
 
         const courseTypes = ["main", "elective", "required"];
