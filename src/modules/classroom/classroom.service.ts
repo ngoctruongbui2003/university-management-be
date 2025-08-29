@@ -221,12 +221,12 @@ export class ClassroomService {
         ];
 
         const schedules = [
-            "Monday 7:00-9:30",
-            "Tuesday 13:00-15:30", 
-            "Wednesday 9:30-12:00",
-            "Thursday 15:30-18:00",
-            "Friday 7:00-9:30",
-            "Saturday 13:00-15:30"
+            "Monday",
+            "Tuesday", 
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday"
         ];
 
         const locations = [
@@ -267,7 +267,7 @@ export class ClassroomService {
             description: subject.description,
             instructor: instructors[instructorIndex],
             credits: subject.credits,
-            section: section,
+            section: section === 3 ? 1 : section,
             schedule: schedules[scheduleIndex],
             location: locations[locationIndex],
             enrolled: enrolled,
