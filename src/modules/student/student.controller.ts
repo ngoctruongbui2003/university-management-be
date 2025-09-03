@@ -8,8 +8,13 @@ import {
   Delete, 
   ParseIntPipe,
   HttpStatus,
-  HttpCode
+  HttpCode,
+  Res,
+  UseInterceptors,
+  UploadedFile
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { StudentService } from './student.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -61,5 +66,66 @@ export class StudentController {
   @Get('class/:classId')
   async findStudentsByClass(@Param('classId', ParseIntPipe) classId: number) {
     return this.studentService.findStudentsByClass(classId);
+  }
+
+  @Get('excel/template')
+  async downloadTemplate(@Res() response: Response): Promise<void> {
+    // Lấy buffer từ service
+    const buffer = await this.studentService.downloadExcelTemplate();
+
+    // Thiết lập header response
+    response.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename=student_template.xlsx',
+    );
+
+    // Gửi buffer về client
+    response.end(buffer);
+  }
+
+  @Get('excel/sample-data')
+  async downloadSampleData(@Res() response: Response): Promise<void> {
+    // Lấy buffer từ service với 100 sinh viên mẫu
+    const buffer = await this.studentService.downloadExcelWithSampleData();
+
+    // Thiết lập header response
+    response.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    response.setHeader(
+      'Content-Disposition',
+      'attachment; filename=student_sample_data.xlsx',
+    );
+
+    // Gửi buffer về client
+    response.end(buffer);
+  }
+
+  @Post('excel/import')
+  @UseInterceptors(FileInterceptor('file'))
+  async importFromExcel(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      return {
+        success: false,
+        message: 'No file uploaded'
+      };
+    }
+
+    const result = await this.studentService.importFromExcel(file);
+    
+    return {
+      success: true,
+      message: `Successfully imported ${result.success} students`,
+      data: {
+        successCount: result.success,
+        errorCount: result.errors.length,
+        errors: result.errors
+      }
+    };
   }
 }
