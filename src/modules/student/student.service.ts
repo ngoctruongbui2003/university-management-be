@@ -590,25 +590,26 @@ export class StudentService {
     instructionSheet.getColumn(1).width = 80;
 
     const instructions = [
-      'FILE DỮ LIỆU MẪU - 100 SINH VIÊN',
+      'HƯỚNG DẪN IMPORT SINH VIÊN',
       '',
       `Năm học hiện tại: ${activeAcademicYear.year} (${activeAcademicYear.status})`,
       '',
-      'File này chứa 100 sinh viên mẫu để bạn tham khảo định dạng dữ liệu.',
+      '1. Điền đầy đủ thông tin vào sheet "Student Template"',
+      '2. Ngày sinh: định dạng YYYY-MM-DD (VD: 2000-01-15)',
+      '3. Giới tính: xem sheet "Gender Options" và copy chính xác',
+      '   - Chỉ được điền: Male, Female, hoặc Other',
+      '4. Lớp học: xem sheet "Class Options" và copy Class Code',
+      '   - VD: nếu muốn chọn lớp CS101, điền chính xác "CS101"',
+      '   - Chỉ hiển thị lớp của năm học đang active',
+      '5. Email phải duy nhất (không trùng lặp)',
+      '6. Xóa dòng ví dụ trước khi import',
       '',
-      'CẤU TRÚC DỮ LIỆU:',
-      '- Full Name: Họ tên đầy đủ',
-      '- Email: Địa chỉ email duy nhất',
-      '- Phone: Số điện thoại (10-11 số)',
-      '- Address: Địa chỉ chi tiết',
-      '- Gender: Male, Female, hoặc Other',
-      '- Birth Date: Định dạng YYYY-MM-DD',
-      '- Class: Mã lớp từ danh sách có sẵn',
+      'CÁCH SỬ DỤNG:',
+      '- Xem sheet "Gender Options" để biết các giá trị giới tính hợp lệ',
+      '- Xem sheet "Class Options" để biết danh sách lớp học và copy Class Code',
+      '- Copy chính xác từ các sheet này vào sheet "Student Template"',
       '',
-      'LƯU Ý:',
-      '- Dữ liệu này chỉ để tham khảo',
-      '- Có thể sửa đổi và import vào hệ thống',
-      '- Đảm bảo email không trùng lặp khi import thật'
+      'LƯU Ý: Tất cả các trường đều bắt buộc!'
     ];
 
     instructions.forEach((instruction, index) => {
@@ -623,7 +624,7 @@ export class StudentService {
     });
 
     // ===== SHEET CHÍNH: Sample Data =====
-    const worksheet = workbook.addWorksheet('Sample Data');
+    const worksheet = workbook.addWorksheet('Student Template');
 
     // Thiết lập các cột
     worksheet.columns = [
