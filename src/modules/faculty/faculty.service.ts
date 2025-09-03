@@ -25,7 +25,7 @@ export class FacultyService {
     }
 
     async findAll(): Promise<Faculty[]> {
-        return this.facultyRepository.find({ order: { name: 'ASC' } });
+        return this.facultyRepository.find({ order: { name: 'ASC' }, relations: ['majors'] });
     }
 
     async findOne(id: number): Promise<Faculty> {
