@@ -42,74 +42,74 @@ export class CourseRegistrationService {
     /**
      * Đăng ký môn học cho sinh viên với đầy đủ validation
      */
-    async registerCourse(registerDto: RegisterCourseDto): Promise<Registration> {
-        const queryRunner = this.dataSource.createQueryRunner();
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
+    // async registerCourse(registerDto: RegisterCourseDto): Promise<Registration> {
+    //     const queryRunner = this.dataSource.createQueryRunner();
+    //     await queryRunner.connect();
+    //     await queryRunner.startTransaction();
 
-        try {
-            // 1. Validate student exists and get faculty info
-            const student = await this.validateAndGetStudent(registerDto.student_id);
+    //     try {
+    //         // 1. Validate student exists and get faculty info
+    //         const student = await this.validateAndGetStudent(registerDto.student_id);
             
-            // 2. Validate registration session and check deadline
-            const registrationSession = await this.validateRegistrationSession(registerDto.registration_session_id);
+    //         // 2. Validate registration session and check deadline
+    //         const registrationSession = await this.validateRegistrationSession(registerDto.registration_session_id);
             
-            // 3. Validate course exists and get full info
-            const course = await this.validateAndGetCourse(registerDto.course_id);
+    //         // 3. Validate course exists and get full info
+    //         const course = await this.validateAndGetCourse(registerDto.course_id);
             
-            // 4. Check if session course exists and is available
-            const sessionCourse = await this.validateSessionCourse(
-                registerDto.registration_session_id, 
-                registerDto.course_id
-            );
+    //         // 4. Check if session course exists and is available
+    //         const sessionCourse = await this.validateSessionCourse(
+    //             registerDto.registration_session_id, 
+    //             registerDto.course_id
+    //         );
             
-            // 5. Check faculty permission
-            await this.validateFacultyPermission(sessionCourse.id, student.classes.major.faculty.id);
+    //         // 5. Check faculty permission
+    //         await this.validateFacultyPermission(sessionCourse.id, student.classes.major.faculty.id);
             
-            // 6. Check course capacity
-            this.validateCourseCapacity(course);
+    //         // 6. Check course capacity
+    //         this.validateCourseCapacity(course);
             
-            // 7. Check duplicate registration
-            await this.validateDuplicateRegistration(registerDto.student_id, registerDto.course_id);
+    //         // 7. Check duplicate registration
+    //         await this.validateDuplicateRegistration(registerDto.student_id, registerDto.course_id);
             
-            // 8. Check schedule conflicts
-            await this.validateScheduleConflicts(registerDto.student_id, course.id, registerDto.registration_session_id);
+    //         // 8. Check schedule conflicts
+    //         await this.validateScheduleConflicts(registerDto.student_id, course.id, registerDto.registration_session_id);
             
-            // 9. Create registration record
-            const registration = queryRunner.manager.create(Registration, {
-                student_id: registerDto.student_id,
-                course_id: registerDto.course_id,
-                registration_session_id: registerDto.registration_session_id,
-                status: RegistrationStatus.CONFIRMED,
-                registered_at: new Date(),
-                notes: registerDto.notes,
-            });
+    //         // 9. Create registration record
+    //         const registration = queryRunner.manager.create(Registration, {
+    //             student_id: registerDto.student_id,
+    //             course_id: registerDto.course_id,
+    //             registration_session_id: registerDto.registration_session_id,
+    //             status: RegistrationStatus.CONFIRMED,
+    //             registered_at: new Date(),
+    //             notes: registerDto.notes,
+    //         });
             
-            const savedRegistration = await queryRunner.manager.save(Registration, registration);
+    //         const savedRegistration = await queryRunner.manager.save(Registration, registration);
             
-            // 10. Update course current_students count
-            await queryRunner.manager.increment(Course, { id: registerDto.course_id }, 'current_students', 1);
+    //         // 10. Update course current_students count
+    //         await queryRunner.manager.increment(Course, { id: registerDto.course_id }, 'current_students', 1);
             
-            await queryRunner.commitTransaction();
+    //         await queryRunner.commitTransaction();
             
-            // 11. Auto-create/join classroom after successful registration
-            try {
-                await this.classroomService.autoCreateClassroom(registerDto.course_id, registerDto.student_id);
-            } catch (classroomError) {
-                // Log error but don't fail the registration
-                console.warn('Failed to auto-create classroom:', classroomError.message);
-            }
+    //         // 11. Auto-create/join classroom after successful registration
+    //         try {
+    //             await this.classroomService.autoCreateClassroom(registerDto.course_id, registerDto.student_id);
+    //         } catch (classroomError) {
+    //             // Log error but don't fail the registration
+    //             console.warn('Failed to auto-create classroom:', classroomError.message);
+    //         }
             
-            // Return with relations
-            return await this.findRegistrationWithDetails(savedRegistration.id);
+    //         // Return with relations
+    //         return await this.findRegistrationWithDetails(savedRegistration.id);
             
-        } catch (error) {
-            await queryRunner.rollbackTransaction();
-            throw error;
-        } finally {
-            await queryRunner.release();
-        }
-    }
+    //     } catch (error) {
+    //         await queryRunner.rollbackTransaction();
+    //         throw error;
+    //     } finally {
+    //         await queryRunner.release();
+    //     }
+    // }
 
     /**
      * Validate student exists and get with faculty info

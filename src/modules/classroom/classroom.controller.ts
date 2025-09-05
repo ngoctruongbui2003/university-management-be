@@ -14,6 +14,9 @@ import {
     HttpCode,
     UploadedFile,
     Res,
+    Req,
+    Request,
+    UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
@@ -27,6 +30,8 @@ import {
 } from './dto/classroom.dto';
 import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
 import { UpdateClassroomStudentGradeDto } from './dto/classroom-student-grade.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 @Controller('classrooms')
 export class ClassroomController {
@@ -40,9 +45,8 @@ export class ClassroomController {
     @HttpCode(HttpStatus.CREATED)
     async createClassroom(
         @Body() createDto: CreateClassroomDto,
-        @Query('creator_id', ParseIntPipe) creatorId: number
     ) {
-        return await this.classroomService.createClassroom(createDto, creatorId);
+        return await this.classroomService.createClassroom(createDto);
     }
 
     /**
@@ -50,33 +54,39 @@ export class ClassroomController {
      * GET /classrooms/my-classrooms
      */
     @Get('my-classrooms')
+    @ApiBearerAuth('access-token')
+    @UseGuards(JwtAuthGuard)
     async getMyClassrooms(
+        @Request() req
     ) {
-        return await this.classroomService.getUserClassrooms();
+        const userId = req.user.userId;
+        return await this.classroomService.getUserClassrooms(userId);
     }
 
     /**
      * Join classroom bằng invite code
      * POST /classrooms/join
      */
-    @Post('join')
-    @HttpCode(HttpStatus.OK)
-    async joinClassroom(
-        @Body() joinDto: JoinClassroomDto,
-        @Query('user_id', ParseIntPipe) userId: number
-    ) {
-        return await this.classroomService.joinClassroom(joinDto, userId);
-    }
+    // @Post('join')
+    // @HttpCode(HttpStatus.OK)
+    // async joinClassroom(
+    //     @Body() joinDto: JoinClassroomDto,
+    //     @Query('user_id', ParseIntPipe) userId: number
+    // ) {
+    //     return await this.classroomService.joinClassroom(joinDto, userId);
+    // }
 
     /**
      * Lấy chi tiết classroom
      * GET /classrooms/:id
      */
-    @Get('my-classrooms/:id')
+    @Get('/:id')
+    @ApiBearerAuth('access-token')
+    @UseGuards(JwtAuthGuard)
     async getClassroomById(
         @Param('id', ParseIntPipe) classroomId: number
     ) {
-        return await this.classroomService.getClassroomDetail(classroomId, 0);
+        return await this.classroomService.getClassroomDetail(classroomId);
     }
 
     /**
@@ -152,14 +162,14 @@ export class ClassroomController {
      * Test endpoint để tạo classroom từ course
      * POST /classrooms/auto-create
      */
-    @Post('auto-create')
-    @HttpCode(HttpStatus.CREATED)
-    async testAutoCreateClassroom(
-        @Query('course_id', ParseIntPipe) courseId: number,
-        @Query('student_id', ParseIntPipe) studentId: number
-    ) {
-        return await this.classroomService.autoCreateClassroom(courseId, studentId);
-    }
+    // @Post('auto-create')
+    // @HttpCode(HttpStatus.CREATED)
+    // async testAutoCreateClassroom(
+    //     @Query('course_id', ParseIntPipe) courseId: number,
+    //     @Query('student_id', ParseIntPipe) studentId: number
+    // ) {
+    //     return await this.classroomService.autoCreateClassroom(courseId, studentId);
+    // }
 
     /**
      * Lấy classroom dashboard với đầy đủ thông tin

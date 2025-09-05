@@ -36,4 +36,8 @@ export class ClassroomMember {
     @ManyToOne(() => User, user => user.id)
     @JoinColumn({ name: 'user_id' })
     user: User;
+
+    @ManyToOne(() => Classroom, classroom => classroom.id)
+    @JoinColumn({ name: 'classroom_id' })
+    classroom: Classroom;
 }

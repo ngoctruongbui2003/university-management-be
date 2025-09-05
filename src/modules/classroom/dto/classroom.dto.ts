@@ -5,16 +5,48 @@ import { ClassroomRole } from '../../../entities/classroom-member.entity';
 export class CreateClassroomDto {
     @IsNotEmpty()
     @IsNumber()
-    course_id: number;
+    subject_id: number;
+
+    @IsNotEmpty()
+    @IsString()
+    semester: string; // Format: "HK1 2025-2026"
 
     @IsOptional()
     @IsString()
     @MaxLength(200)
-    name?: string; // Auto-generated from course if not provided
+    name?: string; // Auto-generated from subject and semester if not provided
 
     @IsOptional()
     @IsString()
     description?: string;
+
+    @IsOptional()
+    @IsNumber()
+    sections?: number;
+
+    @IsOptional()
+    @IsString()
+    schedule?: string;
+
+    @IsOptional()
+    @IsString()
+    location?: string;
+
+    @IsOptional()
+    @IsNumber()
+    enrolled?: number = 0;
+
+    @IsOptional()
+    @IsString()
+    type?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    is_active?: boolean = true;
+
+    @IsOptional()
+    @IsString()
+    teacher_username?: string;
 }
 
 export class UpdateClassroomDto {

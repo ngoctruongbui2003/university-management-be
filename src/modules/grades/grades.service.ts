@@ -308,42 +308,42 @@ export class GradesService {
     /**
      * Lấy sổ điểm tổng quan
      */
-    async getGradeBookOverview(classroomId: number, userId: number): Promise<GradeBookOverviewDto> {
-        await this.validateMemberAccess(classroomId, userId);
+    // async getGradeBookOverview(classroomId: number, userId: number): Promise<GradeBookOverviewDto> {
+    //     await this.validateMemberAccess(classroomId, userId);
 
-        // Get classroom info
-        const classroom = await this.classroomRepository.findOne({
-            where: { id: classroomId },
-            relations: ['course', 'course.subject', 'course.semester']
-        });
+    //     // Get classroom info
+    //     const classroom = await this.classroomRepository.findOne({
+    //         where: { id: classroomId },
+    //         relations: ['course', 'course.subject', 'course.semester']
+    //     });
 
-        // Get all students in classroom
-        const students = await this.memberRepository.find({
-            where: { 
-                classroom_id: classroomId, 
-                role: ClassroomRole.STUDENT,
-                is_active: true 
-            },
-            relations: ['user']
-        });
+    //     // Get all students in classroom
+    //     const students = await this.memberRepository.find({
+    //         where: { 
+    //             classroom_id: classroomId, 
+    //             role: ClassroomRole.STUDENT,
+    //             is_active: true 
+    //         },
+    //         relations: ['user']
+    //     });
 
-        // Get all grade types for this classroom's course
-        const gradeTypes = await this.gradeTypeRepository.find({
-            where: { gradingFormulaId: classroom.course.subject.gradingFormulaId },
-            relations: ['gradingFormula']
-        });
+    //     // Get all grade types for this classroom's course
+    //     const gradeTypes = await this.gradeTypeRepository.find({
+    //         where: { gradingFormulaId: classroom.course.subject.gradingFormulaId },
+    //         relations: ['gradingFormula']
+    //     });
 
-        // Get all grades for this classroom
-        const grades = await this.gradeRepository.find({
-            where: { 
-                classroom_id: classroomId,
-                is_published: true 
-            },
-            relations: ['gradeType', 'student']
-        });
+    //     // Get all grades for this classroom
+    //     const grades = await this.gradeRepository.find({
+    //         where: { 
+    //             classroom_id: classroomId,
+    //             is_published: true 
+    //         },
+    //         relations: ['gradeType', 'student']
+    //     });
 
-        return this.buildGradeBookOverview(classroom, students, gradeTypes, grades);
-    }
+    //     return this.buildGradeBookOverview(classroom, students, gradeTypes, grades);
+    // }
 
     /**
      * Lấy điểm chi tiết của 1 sinh viên
@@ -388,52 +388,52 @@ export class GradesService {
     /**
      * Tính điểm cuối kỳ
      */
-    async calculateFinalGrades(
-        classroomId: number,
-        teacherId: number,
-        calculationDto: FinalGradeCalculationDto
-    ): Promise<any> {
-        await this.validateTeacherAccess(classroomId, teacherId);
+    // async calculateFinalGrades(
+    //     classroomId: number,
+    //     teacherId: number,
+    //     calculationDto: FinalGradeCalculationDto
+    // ): Promise<any> {
+    //     await this.validateTeacherAccess(classroomId, teacherId);
 
-        const students = await this.memberRepository.find({
-            where: { 
-                classroom_id: classroomId, 
-                role: ClassroomRole.STUDENT,
-                is_active: true 
-            },
-            relations: ['user']
-        });
+    //     const students = await this.memberRepository.find({
+    //         where: { 
+    //             classroom_id: classroomId, 
+    //             role: ClassroomRole.STUDENT,
+    //             is_active: true 
+    //         },
+    //         relations: ['user']
+    //     });
 
-        const results = [];
+    //     const results = [];
 
-        for (const student of students) {
-            const finalGrade = await this.calculateStudentFinalGrade(
-                classroomId, 
-                student.user_id,
-                calculationDto.include_incomplete
-            );
+    //     for (const student of students) {
+    //         const finalGrade = await this.calculateStudentFinalGrade(
+    //             classroomId, 
+    //             student.user_id,
+    //             calculationDto.include_incomplete
+    //         );
 
-            if (calculationDto.save_as_final) {
-                // Save as final grade (implementation depends on your needs)
-                // Could create a special grade type for final grades
-            }
+    //         if (calculationDto.save_as_final) {
+    //             // Save as final grade (implementation depends on your needs)
+    //             // Could create a special grade type for final grades
+    //         }
 
-            results.push({
-                student_id: student.user_id,
-                student_name: student.user.full_name,
-                final_grade: finalGrade.final_score,
-                letter_grade: this.getLetterGrade(finalGrade.final_score),
-                grade_breakdown: finalGrade.breakdown
-            });
-        }
+    //         results.push({
+    //             student_id: student.user_id,
+    //             student_name: student.user.full_name,
+    //             final_grade: finalGrade.final_score,
+    //             letter_grade: this.getLetterGrade(finalGrade.final_score),
+    //             grade_breakdown: finalGrade.breakdown
+    //         });
+    //     }
 
-        return {
-            classroom_id: classroomId,
-            calculation_date: new Date(),
-            total_students: students.length,
-            results: results
-        };
-    }
+    //     return {
+    //         classroom_id: classroomId,
+    //         calculation_date: new Date(),
+    //         total_students: students.length,
+    //         results: results
+    //     };
+    // }
 
     /**
      * Helper methods
@@ -476,69 +476,69 @@ export class GradesService {
         });
     }
 
-    private async calculateStudentFinalGrade(
-        classroomId: number, 
-        studentId: number, 
-        includeIncomplete: boolean = false
-    ): Promise<any> {
-        const classroom = await this.classroomRepository.findOne({
-            where: { id: classroomId },
-            relations: ['course', 'course.subject']
-        });
+    // private async calculateStudentFinalGrade(
+    //     classroomId: number, 
+    //     studentId: number, 
+    //     includeIncomplete: boolean = false
+    // ): Promise<any> {
+    //     const classroom = await this.classroomRepository.findOne({
+    //         where: { id: classroomId },
+    //         relations: ['course', 'course.subject']
+    //     });
 
-        const gradeTypes = await this.gradeTypeRepository.find({
-            where: { gradingFormulaId: classroom.course.subject.gradingFormulaId }
-        });
+    //     const gradeTypes = await this.gradeTypeRepository.find({
+    //         where: { gradingFormulaId: classroom.course.subject.gradingFormulaId }
+    //     });
 
-        const grades = await this.gradeRepository.find({
-            where: { 
-                classroom_id: classroomId,
-                student_id: studentId,
-                is_published: true 
-            },
-            relations: ['gradeType']
-        });
+    //     const grades = await this.gradeRepository.find({
+    //         where: { 
+    //             classroom_id: classroomId,
+    //             student_id: studentId,
+    //             is_published: true 
+    //         },
+    //         relations: ['gradeType']
+    //     });
 
-        let totalWeightedScore = 0;
-        let totalWeight = 0;
-        const breakdown = [];
+    //     let totalWeightedScore = 0;
+    //     let totalWeight = 0;
+    //     const breakdown = [];
 
-        for (const gradeType of gradeTypes) {
-            const typeGrades = grades.filter(g => g.grade_type_id === gradeType.id);
+    //     for (const gradeType of gradeTypes) {
+    //         const typeGrades = grades.filter(g => g.grade_type_id === gradeType.id);
             
-            if (typeGrades.length > 0) {
-                const averageScore = typeGrades.reduce((sum, g) => sum + (g.score / g.max_score * 10), 0) / typeGrades.length;
-                const weightedScore = averageScore * (gradeType.weight / 100);
+    //         if (typeGrades.length > 0) {
+    //             const averageScore = typeGrades.reduce((sum, g) => sum + (g.score / g.max_score * 10), 0) / typeGrades.length;
+    //             const weightedScore = averageScore * (gradeType.weight / 100);
                 
-                totalWeightedScore += weightedScore;
-                totalWeight += gradeType.weight;
+    //             totalWeightedScore += weightedScore;
+    //             totalWeight += gradeType.weight;
 
-                breakdown.push({
-                    grade_type: gradeType.gradeType,
-                    weight: gradeType.weight,
-                    average_score: averageScore,
-                    weighted_score: weightedScore,
-                    count: typeGrades.length
-                });
-            } else if (includeIncomplete) {
-                breakdown.push({
-                    grade_type: gradeType.gradeType,
-                    weight: gradeType.weight,
-                    average_score: 0,
-                    weighted_score: 0,
-                    count: 0
-                });
-            }
-        }
+    //             breakdown.push({
+    //                 grade_type: gradeType.gradeType,
+    //                 weight: gradeType.weight,
+    //                 average_score: averageScore,
+    //                 weighted_score: weightedScore,
+    //                 count: typeGrades.length
+    //             });
+    //         } else if (includeIncomplete) {
+    //             breakdown.push({
+    //                 grade_type: gradeType.gradeType,
+    //                 weight: gradeType.weight,
+    //                 average_score: 0,
+    //                 weighted_score: 0,
+    //                 count: 0
+    //             });
+    //         }
+    //     }
 
-        const finalScore = totalWeight > 0 ? (totalWeightedScore / totalWeight * 100) : 0;
+    //     const finalScore = totalWeight > 0 ? (totalWeightedScore / totalWeight * 100) : 0;
 
-        return {
-            final_score: Math.round(finalScore * 100) / 100,
-            total_weight: totalWeight,
-            breakdown: breakdown
-        };
-    }
+    //     return {
+    //         final_score: Math.round(finalScore * 100) / 100,
+    //         total_weight: totalWeight,
+    //         breakdown: breakdown
+    //     };
+    // }
 
     private getLetterGrade(score: number): string {
         if (score >= 8.5) return 'A';

@@ -83,13 +83,13 @@ export class GradesController {
      * Lấy sổ điểm tổng quan
      * GET /classrooms/:classroomId/grades/gradebook
      */
-    @Get('gradebook')
-    async getGradeBookOverview(
-        @Param('classroomId', ParseIntPipe) classroomId: number,
-        @Query('user_id', ParseIntPipe) userId: number
-    ) {
-        return await this.gradesService.getGradeBookOverview(classroomId, userId);
-    }
+    // @Get('gradebook')
+    // async getGradeBookOverview(
+    //     @Param('classroomId', ParseIntPipe) classroomId: number,
+    //     @Query('user_id', ParseIntPipe) userId: number
+    // ) {
+    //     return await this.gradesService.getGradeBookOverview(classroomId, userId);
+    // }
 
     /**
      * Lấy điểm chi tiết của 1 sinh viên
@@ -108,15 +108,15 @@ export class GradesController {
      * Tính điểm cuối kỳ
      * POST /classrooms/:classroomId/grades/calculate-final
      */
-    @Post('calculate-final')
-    @HttpCode(HttpStatus.OK)
-    async calculateFinalGrades(
-        @Param('classroomId', ParseIntPipe) classroomId: number,
-        @Body() calculationDto: FinalGradeCalculationDto,
-        @Query('teacher_id', ParseIntPipe) teacherId: number
-    ) {
-        return await this.gradesService.calculateFinalGrades(classroomId, teacherId, calculationDto);
-    }
+    // @Post('calculate-final')
+    // @HttpCode(HttpStatus.OK)
+    // async calculateFinalGrades(
+    //     @Param('classroomId', ParseIntPipe) classroomId: number,
+    //     @Body() calculationDto: FinalGradeCalculationDto,
+    //     @Query('teacher_id', ParseIntPipe) teacherId: number
+    // ) {
+    //     return await this.gradesService.calculateFinalGrades(classroomId, teacherId, calculationDto);
+    // }
 
     /**
      * Cập nhật đợt chấm điểm

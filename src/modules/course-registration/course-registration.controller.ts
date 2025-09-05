@@ -24,11 +24,11 @@ export class CourseRegistrationController {
      * Đăng ký môn học
      * POST /course-registration/register
      */
-    @Post('register')
-    @HttpCode(HttpStatus.CREATED)
-    async registerCourse(@Body() registerDto: RegisterCourseDto) {
-        return await this.courseRegistrationService.registerCourse(registerDto);
-    }
+    // @Post('register')
+    // @HttpCode(HttpStatus.CREATED)
+    // async registerCourse(@Body() registerDto: RegisterCourseDto) {
+    //     return await this.courseRegistrationService.registerCourse(registerDto);
+    // }
 
     /**
      * Hủy đăng ký môn học

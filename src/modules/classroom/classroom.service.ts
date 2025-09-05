@@ -60,59 +60,59 @@ export class ClassroomService {
         private classroomSectionRepository: Repository<ClassroomSection>,
     ) {}
 
-    /**
-     * Auto tạo classroom khi đăng ký môn thành công
-     */
-    async autoCreateClassroom(courseId: number, studentId: number): Promise<Classroom> {
-        // Kiểm tra classroom đã tồn tại chưa
-        let classroom = await this.classroomRepository.findOne({
-            where: { course_id: courseId },
-            relations: ['course', 'course.subject', 'course.teacher']
-        });
+    // /**
+    //  * Auto tạo classroom khi đăng ký môn thành công
+    //  */
+    // async autoCreateClassroom(courseId: number, studentId: number): Promise<Classroom> {
+    //     // Kiểm tra classroom đã tồn tại chưa
+    //     let classroom = await this.classroomRepository.findOne({
+    //         where: { course_id: courseId },
+    //         relations: ['course', 'course.subject', 'course.teacher']
+    //     });
 
-        if (!classroom) {
-            // Tạo classroom mới
-            const course = await this.courseRepository.findOne({
-                where: { id: courseId },
-                relations: ['subject', 'teacher', 'semester']
-            });
+    //     if (!classroom) {
+    //         // Tạo classroom mới
+    //         const course = await this.courseRepository.findOne({
+    //             where: { id: courseId },
+    //             relations: ['subject', 'teacher', 'semester']
+    //         });
 
-            if (!course) {
-                throw new NotFoundException('Course not found');
-            }
+    //         if (!course) {
+    //             throw new NotFoundException('Course not found');
+    //         }
 
-            classroom = await this.createClassroomFromCourse(course);
-        }
+    //         classroom = await this.createClassroomFromCourse(course);
+    //     }
 
-        // Thêm sinh viên vào classroom
-        await this.autoJoinStudent(classroom.id, studentId);
+    //     // Thêm sinh viên vào classroom
+    //     await this.autoJoinStudent(classroom.id, studentId);
 
-        return classroom;
-    }
+    //     return classroom;
+    // }
 
     /**
      * Tạo classroom từ course
      */
-    private async createClassroomFromCourse(course: any): Promise<Classroom> {
-        const classCode = this.generateClassCode(course);
-        const inviteCode = this.generateInviteCode();
+    // private async createClassroomFromCourse(course: any): Promise<Classroom> {
+    //     const classCode = this.generateClassCode(course);
+    //     const inviteCode = this.generateInviteCode();
 
-        const classroom = this.classroomRepository.create({
-            course_id: course.id,
-            name: `${course.subject.name} - ${course.class_code}`,
-            description: `Lớp học online cho môn ${course.subject.name}`,
-            class_code: classCode,
-            invite_code: inviteCode,
-            is_active: true
-        });
+    //     const classroom = this.classroomRepository.create({
+    //         course_id: course.id,
+    //         name: `${course.subject.name} - ${course.class_code}`,
+    //         description: `Lớp học online cho môn ${course.subject.name}`,
+    //         class_code: classCode,
+    //         invite_code: inviteCode,
+    //         is_active: true
+    //     });
 
-        const savedClassroom = await this.classroomRepository.save(classroom);
+    //     const savedClassroom = await this.classroomRepository.save(classroom);
 
-        // Thêm giáo viên vào classroom
-        await this.addMember(savedClassroom.id, course.teacher_id, ClassroomRole.TEACHER);
+    //     // Thêm giáo viên vào classroom
+    //     await this.addMember(savedClassroom.id, course.teacher_id, ClassroomRole.TEACHER);
 
-        return savedClassroom;
-    }
+    //     return savedClassroom;
+    // }
 
     /**
      * Tự động thêm sinh viên vào classroom
@@ -148,64 +148,180 @@ export class ClassroomService {
     /**
      * Tạo classroom thủ công
      */
-    async createClassroom(createDto: CreateClassroomDto, creatorId: number): Promise<ClassroomResponseDto> {
-        const course = await this.courseRepository.findOne({
-            where: { id: createDto.course_id },
-            relations: ['subject', 'teacher', 'semester']
+    // async createClassroom(createDto: CreateClassroomDto, creatorId: number): Promise<ClassroomResponseDto> {
+    //     const course = await this.courseRepository.findOne({
+    //         where: { id: createDto.course_id },
+    //         relations: ['subject', 'teacher', 'semester']
+    //     });
+
+    //     if (!course) {
+    //         throw new NotFoundException('Course not found');
+    //     }
+
+    //     // Kiểm tra quyền tạo classroom (chỉ teacher của course)
+    //     if (course.teacher_id !== creatorId) {
+    //         throw new ForbiddenException('Only course teacher can create classroom');
+    //     }
+
+    //     // Kiểm tra classroom đã tồn tại
+    //     const existingClassroom = await this.classroomRepository.findOne({
+    //         where: { course_id: createDto.course_id }
+    //     });
+
+    //     if (existingClassroom) {
+    //         throw new ConflictException('Classroom already exists for this course');
+    //     }
+
+    //     const classroom = await this.createClassroomFromCourse(course);
+    //     return this.mapToResponseDto(classroom);
+    // }
+
+    private formatSemesterName(semester: string): string {
+        // Input format: "HK1 2025-2026"
+        // Output format: "HK1_2025"
+        const [term, years] = semester.split(' ');
+        const startYear = years.split('-')[0];
+        return `${term}_${startYear}`;
+    }
+
+    private async getNextSectionNumber(subject_id: number, semester: string): Promise<number> {
+        // Get all classrooms for this subject in this semester
+        const classrooms = await this.classroomRepository.find({
+            where: {
+                subject: { id: subject_id },
+                semester: semester
+            },
+            order: { name: 'DESC' } // Order by name descending to get the latest N number
         });
 
-        if (!course) {
-            throw new NotFoundException('Course not found');
+        if (classrooms.length === 0) {
+            return 1; // First section
         }
 
-        // Kiểm tra quyền tạo classroom (chỉ teacher của course)
-        if (course.teacher_id !== creatorId) {
-            throw new ForbiddenException('Only course teacher can create classroom');
+        // Find the highest N number
+        let maxN = 1;
+        for (const classroom of classrooms) {
+            const match = classroom.name.match(/_N(\d+)$/);
+            if (match) {
+                const nNumber = parseInt(match[1]);
+                if (nNumber > maxN) {
+                    maxN = nNumber;
+                }
+            }
         }
 
-        // Kiểm tra classroom đã tồn tại
-        const existingClassroom = await this.classroomRepository.findOne({
-            where: { course_id: createDto.course_id }
+        return maxN + 1;
+    }
+
+    async createClassroom(createDto: CreateClassroomDto): Promise<Classroom> {
+        // Get subject information to get credits and name
+        const subject = await this.subjectRepository.findOne({
+            where: { id: createDto.subject_id }
         });
 
-        if (existingClassroom) {
-            throw new ConflictException('Classroom already exists for this course');
+        if (!subject) {
+            throw new NotFoundException('Subject not found');
         }
 
-        const classroom = await this.createClassroomFromCourse(course);
-        return this.mapToResponseDto(classroom);
+        // Format semester name
+        const formattedSemester = this.formatSemesterName(createDto.semester);
+
+        // Get next section number (N1, N2, etc.)
+        const nextN = await this.getNextSectionNumber(createDto.subject_id, createDto.semester);
+
+        // Generate classroom name if not provided
+        const name = createDto.name || `${formattedSemester}_${subject.name}_N${nextN}`;
+
+        let teacher;
+        if (createDto.teacher_username) {
+            // Get teacher information
+            teacher = await this.userRepository.findOne({
+                where: { username: createDto.teacher_username }
+            });
+            if (!teacher) {
+                throw new NotFoundException('Teacher not found');
+            }
+        }
+
+        // Create classroom with subject credits and instructor
+        const classroom = this.classroomRepository.create({
+            ...createDto,
+            name,
+            credits: subject.credits,
+            enrolled: createDto.enrolled || 0,
+            is_active: createDto.is_active ?? true,
+            subject: subject,
+            instructor: teacher ? teacher.full_name : null
+        });
+
+        // Save classroom first to get the ID
+        const savedClassroom = await this.classroomRepository.save(classroom);
+
+        if (teacher) {
+            // Add teacher to classroom member
+            await this.addMember(savedClassroom.id, teacher.id, ClassroomRole.TEACHER);
+        }
+
+        return this.classroomRepository.save(classroom);
     }
 
     /**
      * Lấy danh sách classroom của user
      */
-    async getUserClassrooms() {
-        // const memberClassrooms = await this.memberRepository.find({
-        //     where: { 
-        //         user_id: userId, 
-        //         is_active: true 
-        //     },
-        //     relations: [
-        //         'classroom',
-        //         'classroom.course',
-        //         'classroom.course.subject',
-        //         'classroom.course.teacher',
-        //         'classroom.course.semester'
-        //     ]
-        // });
-
-        // return memberClassrooms.map(member => 
-        //     this.mapToResponseDto(member.classroom)
-        // );
-
-        
-        const subjects = await this.subjectRepository.find({
+    async getUserClassrooms(userId: number) {
+        // Get all active memberships for the user
+        const memberships = await this.memberRepository.find({
             where: {
-                id: In([1, 2, 3, 4, 5])
-            }
+                user_id: userId,
+                is_active: true
+            },
+            relations: ['classroom']
         });
 
-        return subjects.map((subject, index) => this.generateCourseData(subject, index));
+        if (!memberships || memberships.length === 0) {
+            return [];
+        }
+
+        // Get classroom IDs from memberships
+        const classroomIds = memberships.map(m => m.classroom_id);
+
+        // Get full classroom details with all necessary relations
+        const classrooms = await this.classroomRepository.find({
+            where: {
+                id: In(classroomIds)
+            },
+            relations: [
+                'subject'
+            ]
+        });
+
+        // Map classrooms to response format
+        return classrooms.map(classroom => {
+            const membership = memberships.find(m => m.classroom_id === classroom.id);
+            return {
+                id: classroom.id,
+                name: classroom.name,
+                description: classroom.description,
+                credits: classroom.credits,
+                sections: classroom.sections,
+                schedule: classroom.schedule,
+                location: classroom.location,
+                enrolled: classroom.enrolled,
+                is_active: classroom.is_active,
+                semester: classroom.semester,
+                type: classroom.type,
+                instructor: classroom.instructor,
+                subject: classroom.subject ? {
+                    id: classroom.subject.id,
+                    name: classroom.subject.name,
+                    credits: classroom.subject.credits,
+                    description: classroom.subject.description
+                } : null,
+                user_role: membership?.role || null,
+                created_at: classroom.created_at,
+                updated_at: classroom.updated_at
+            };
+        });
     }
 
     /**
@@ -301,11 +417,11 @@ export class ClassroomService {
         return this.mapToResponseDto(classroom);
     }
 
-    async getClassroomDetail(classroomId: number, userId: number): Promise<any> {
-        const subject = await this.subjectRepository.findOne({
-            where: { id: classroomId }
+    async getClassroomDetail(classroomId: number): Promise<any> {
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId },
         });
-        const classroom = this.generateCourseData(subject, classroomId - 1);
+        
         return [
             {
                 id: classroom.id,
@@ -652,33 +768,33 @@ export class ClassroomService {
     /**
      * Join classroom bằng invite code
      */
-    async joinClassroom(joinDto: JoinClassroomDto, userId: number): Promise<void> {
-        const classroom = await this.classroomRepository.findOne({
-            where: { invite_code: joinDto.invite_code }
-        });
+    // async joinClassroom(joinDto: JoinClassroomDto, userId: number): Promise<void> {
+    //     const classroom = await this.classroomRepository.findOne({
+    //         where: { invite_code: joinDto.invite_code }
+    //     });
 
-        if (!classroom) {
-            throw new NotFoundException('Invalid invite code');
-        }
+    //     if (!classroom) {
+    //         throw new NotFoundException('Invalid invite code');
+    //     }
 
-        if (!classroom.is_active) {
-            throw new BadRequestException('Classroom is not active');
-        }
+    //     if (!classroom.is_active) {
+    //         throw new BadRequestException('Classroom is not active');
+    //     }
 
-        // Kiểm tra đã là thành viên chưa
-        const existingMember = await this.memberRepository.findOne({
-            where: { 
-                classroom_id: classroom.id, 
-                user_id: userId 
-            }
-        });
+    //     // Kiểm tra đã là thành viên chưa
+    //     const existingMember = await this.memberRepository.findOne({
+    //         where: { 
+    //             classroom_id: classroom.id, 
+    //             user_id: userId 
+    //         }
+    //     });
 
-        if (existingMember) {
-            throw new ConflictException('Already a member of this classroom');
-        }
+    //     if (existingMember) {
+    //         throw new ConflictException('Already a member of this classroom');
+    //     }
 
-        await this.addMember(classroom.id, userId, ClassroomRole.STUDENT);
-    }
+    //     await this.addMember(classroom.id, userId, ClassroomRole.STUDENT);
+    // }
 
     /**
      * Lấy classroom dashboard với đầy đủ thông tin (posts + grades summary)
