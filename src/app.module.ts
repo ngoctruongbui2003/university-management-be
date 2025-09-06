@@ -19,6 +19,7 @@ import { StudentModule } from './modules/student/student.module';
 import { TeacherModule } from './modules/teacher/teacher.module';
 import { SemesterModule } from './modules/semester/semester.module';
 import { CourseRegistrationModule } from './modules/course-registration/course-registration.module';
+import { CourseRegistrationManagementModule } from './modules/course-registration-management/course-registration-management.module';
 import { ClassroomModule } from './modules/classroom/classroom.module';
 import { FileUploadModule } from './modules/file-upload/file-upload.module';
 import { GradesModule } from './modules/grades/grades.module';
@@ -42,6 +43,7 @@ import { GradesModule } from './modules/grades/grades.module';
     TeacherModule,
     SemesterModule,
     CourseRegistrationModule,
+    CourseRegistrationManagementModule,
     TimetableModule,
     ClassroomModule,
     FileUploadModule,

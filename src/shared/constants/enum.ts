@@ -32,3 +32,8 @@ export enum RegistrationStatus {
     CANCELLED = 'Cancelled',
     WAITLIST = 'Waitlist'
 }
+
+export enum CourseRegistrationStatus {
+    OPEN = 'Open',
+    CLOSED = 'Closed'
+}
