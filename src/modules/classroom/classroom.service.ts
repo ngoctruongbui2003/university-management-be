@@ -21,6 +21,7 @@ import {
     PostResponseDto
 } from './dto/classroom.dto';
 import { AddClassroomMemberDto, ClassroomMemberResponseDto } from './dto/classroom-member.dto';
+import { ImportStudentDto, ImportStudentResponseDto } from './dto/import-student.dto';
 import { 
     CreateClassroomStudentGradeDto, 
     UpdateClassroomStudentGradeDto, 
@@ -32,6 +33,8 @@ import { Subject } from 'src/entities/subject.entity';
 import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
 import { ClassroomSection } from 'src/entities/classsroom-section.entity';
 import { UserRole } from 'src/shared/constants/enum';
+import { Student } from 'src/entities/student.entity';
+import { Faculty } from 'src/entities/faculty.entity';
 
 @Injectable()
 export class ClassroomService {
@@ -65,6 +68,12 @@ export class ClassroomService {
 
         @InjectRepository(ClassroomSection)
         private classroomSectionRepository: Repository<ClassroomSection>,
+
+        @InjectRepository(Student)
+        private studentRepository: Repository<Student>,
+
+        @InjectRepository(Faculty)
+        private facultyRepository: Repository<Faculty>,
     ) {}
 
     // /**
@@ -1844,6 +1853,509 @@ export class ClassroomService {
                 full_name: user.full_name,
                 email: user.email
             }
+        };
+    }
+
+    // =============== STUDENT EXCEL IMPORT METHODS ===============
+
+    /**
+     * Download Excel template for student import
+     */
+    async downloadStudentExcelTemplate(classroomId: number): Promise<Buffer> {
+        // Kiểm tra classroom tồn tại
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: ['subject', 'subject.faculty']
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        const workbook = new ExcelJS.Workbook();
+
+        // ===== INSTRUCTION SHEET =====
+        const instructionSheet = workbook.addWorksheet('Hướng dẫn');
+        instructionSheet.getColumn(1).width = 80;
+
+        const instructions = [
+            'HƯỚNG DẪN IMPORT SINH VIÊN VÀO LỚP HỌC',
+            '',
+            '1. Chỉ sinh viên thuộc cùng khoa với môn học mới có thể được thêm vào lớp',
+            `2. Khoa của môn học này: ${classroom.subject?.faculty?.name || 'N/A'}`,
+            '3. Xem danh sách đầy đủ sinh viên đủ điều kiện trong sheet "Eligible Students List"',
+            '4. Copy username từ sheet đó sang sheet "Student Template"',
+            '5. Cột "username" là bắt buộc - đây là username của sinh viên trong hệ thống',
+            '6. Các cột khác là tùy chọn, hệ thống sẽ tự động lấy từ database',
+            '7. Không được xóa header row (dòng đầu tiên)',
+            '8. Lưu file và upload để import',
+            '',
+            'CÁC SHEET TRONG FILE:',
+            '- "Hướng dẫn": Sheet này',
+            '- "Student Template": Sheet để điền dữ liệu import',
+            '- "Eligible Students List": TẤT CẢ sinh viên đủ điều kiện thêm',
+            '',
+            'LƯU Ý:',
+            '- Sinh viên phải đã tồn tại trong hệ thống',
+            '- Sinh viên phải thuộc khoa phù hợp',
+            '- Sinh viên đã có trong lớp sẽ bị bỏ qua',
+        ];
+
+        instructions.forEach((instruction, index) => {
+            const row = instructionSheet.getRow(index + 1);
+            row.getCell(1).value = instruction;
+            
+            if (index === 0) {
+                row.getCell(1).font = { bold: true, size: 14 };
+            } else if (instruction.startsWith('LƯU Ý:')) {
+                row.getCell(1).font = { bold: true, color: { argb: 'FFFF0000' } };
+            } else if (instruction.startsWith('CÁC SHEET TRONG FILE:')) {
+                row.getCell(1).font = { bold: true, color: { argb: 'FF0000FF' } };
+            }
+        });
+
+        // ===== STUDENT TEMPLATE SHEET =====
+        const templateSheet = workbook.addWorksheet('Student Template');
+        
+        // Headers
+        const headers = ['username', 'full_name', 'email', 'student_code'];
+        const headerRow = templateSheet.getRow(1);
+        
+        headers.forEach((header, index) => {
+            const cell = headerRow.getCell(index + 1);
+            cell.value = header;
+            cell.font = { bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        // Set column widths
+        templateSheet.getColumn(1).width = 20; // username
+        templateSheet.getColumn(2).width = 30; // full_name
+        templateSheet.getColumn(3).width = 30; // email
+        templateSheet.getColumn(4).width = 15; // student_code
+
+        // Add some sample rows for guidance
+        const sampleRow = templateSheet.getRow(2);
+        sampleRow.getCell(1).value = 'student001';
+        sampleRow.getCell(2).value = 'Nguyễn Văn A';
+        sampleRow.getCell(3).value = 'student001@university.edu.vn';
+        sampleRow.getCell(4).value = 'SV001';
+
+        // Style sample row
+        for (let i = 1; i <= 4; i++) {
+            sampleRow.getCell(i).font = { italic: true, color: { argb: 'FF808080' } };
+        }
+
+        // ===== ELIGIBLE STUDENTS LIST SHEET =====
+        const eligibleSheet = workbook.addWorksheet('Eligible Students List');
+        
+        // Get ALL eligible students (not limited to 20)
+        const allEligibleStudents = await this.userRepository
+            .createQueryBuilder('user')
+            .leftJoin('classroom_members', 'cm', 'cm.user_id = user.id AND cm.classroom_id = :classroomId', { classroomId })
+            .leftJoin('faculties', 'faculty', 'faculty.id = user.faculty_id')
+            .where('user.role = :role', { role: UserRole.STUDENT })
+            .andWhere('user.faculty_id = :facultyId', { facultyId: classroom.subject?.faculty_id })
+            .andWhere('cm.id IS NULL') // Chưa có trong classroom
+            .andWhere('user.isActive = :isActive', { isActive: true })
+            .select([
+                'user.id',
+                'user.username', 
+                'user.full_name', 
+                'user.email',
+                'faculty.name'
+            ])
+            .orderBy('user.full_name', 'ASC')
+            .getMany();
+
+        // Add title row
+        const titleRow = eligibleSheet.getRow(1);
+        const titleCell = titleRow.getCell(1);
+        titleCell.value = `DANH SÁCH TẤT CẢ SINH VIÊN ĐỦ ĐIỀU KIỆN THÊM VÀO LỚP (Khoa: ${classroom.subject?.faculty?.name || 'N/A'})`;
+        titleCell.font = { bold: true, size: 12, color: { argb: 'FF000080' } };
+        eligibleSheet.mergeCells('A1:E1');
+
+        // Add note row
+        const noteRow = eligibleSheet.getRow(2);
+        noteRow.getCell(1).value = 'LƯU Ý: Copy username từ danh sách này sang sheet "Student Template" để import';
+        noteRow.getCell(1).font = { italic: true, color: { argb: 'FFFF0000' } };
+        eligibleSheet.mergeCells('A2:E2');
+
+        // Add header row at row 3
+        const eligibleHeaders = ['STT', 'username', 'full_name', 'email', 'faculty_name'];
+        const eligibleHeaderRow = eligibleSheet.getRow(3);
+        eligibleHeaders.forEach((header, index) => {
+            const cell = eligibleHeaderRow.getCell(index + 1);
+            cell.value = header;
+            cell.font = { bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFADD8E6' } };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        // Add all eligible students data
+        allEligibleStudents.forEach((student, index) => {
+            const row = eligibleSheet.getRow(index + 4); // Start from row 4
+            row.getCell(1).value = index + 1; // STT
+            row.getCell(2).value = student.username;
+            row.getCell(3).value = student.full_name;
+            row.getCell(4).value = student.email;
+            row.getCell(5).value = classroom.subject?.faculty?.name || 'N/A';
+
+            // Add border to all cells
+            for (let i = 1; i <= 5; i++) {
+                row.getCell(i).border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            }
+        });
+
+        eligibleSheet.getColumn(1).width = 8; // STT
+        eligibleSheet.getColumn(2).width = 20; // username
+        eligibleSheet.getColumn(3).width = 30; // full_name
+        eligibleSheet.getColumn(4).width = 30; // email
+        eligibleSheet.getColumn(5).width = 25; // faculty_name
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return Buffer.from(buffer);
+    }
+
+    /**
+     * Download Excel with sample data for student import
+     */
+    async downloadStudentExcelWithSampleData(classroomId: number): Promise<Buffer> {
+        // Kiểm tra classroom tồn tại
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: ['subject', 'subject.faculty']
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        // Lấy danh sách sinh viên thuộc khoa của môn học, chưa có trong lớp
+        const facultyId = classroom.subject?.faculty_id;
+        if (!facultyId) {
+            throw new BadRequestException('Subject faculty information is missing');
+        }
+
+        // Lấy sinh viên thuộc khoa này và chưa có trong classroom
+        const availableStudents = await this.userRepository
+            .createQueryBuilder('user')
+            .leftJoin('classroom_members', 'cm', 'cm.user_id = user.id AND cm.classroom_id = :classroomId', { classroomId })
+            .where('user.role = :role', { role: UserRole.STUDENT })
+            .andWhere('user.faculty_id = :facultyId', { facultyId })
+            .andWhere('cm.id IS NULL') // Chưa có trong classroom
+            .andWhere('user.isActive = :isActive', { isActive: true })
+            .limit(20) // Lấy 20 sinh viên mẫu
+            .getMany();
+
+        const workbook = new ExcelJS.Workbook();
+
+        // ===== INSTRUCTION SHEET =====
+        const instructionSheet = workbook.addWorksheet('Hướng dẫn');
+        instructionSheet.getColumn(1).width = 80;
+
+        const instructions = [
+            'HƯỚNG DẪN IMPORT SINH VIÊN VÀO LỚP HỌC',
+            '',
+            '1. File này chứa dữ liệu mẫu của sinh viên có thể thêm vào lớp',
+            `2. Khoa của môn học: ${classroom.subject?.faculty?.name || 'N/A'}`,
+            '3. Xem danh sách đầy đủ sinh viên đủ điều kiện trong sheet "Eligible Students List"',
+            '4. Chọn sinh viên từ sheet "Student Sample Data" (20 sinh viên mẫu)',
+            '5. Copy username từ danh sách sang sheet "Student Template"',
+            '6. Chỉnh sửa thông tin nếu cần và upload file để import',
+            '',
+            'CÁC SHEET TRONG FILE:',
+            '- "Hướng dẫn": Sheet này',
+            '- "Student Template": Sheet để điền dữ liệu import', 
+            '- "Student Sample Data": 20 sinh viên mẫu',
+            '- "Eligible Students List": TẤT CẢ sinh viên đủ điều kiện',
+            '',
+            'LƯU Ý:',
+            '- Chỉ sinh viên thuộc cùng khoa mới được thêm',
+            '- Sinh viên đã có trong lớp sẽ không xuất hiện trong danh sách',
+        ];
+
+        instructions.forEach((instruction, index) => {
+            const row = instructionSheet.getRow(index + 1);
+            row.getCell(1).value = instruction;
+            
+            if (index === 0) {
+                row.getCell(1).font = { bold: true, size: 14 };
+            } else if (instruction.startsWith('LƯU Ý:')) {
+                row.getCell(1).font = { bold: true, color: { argb: 'FFFF0000' } };
+            }
+        });
+
+        
+        // ===== STUDENT SAMPLE DATA SHEET =====
+        const sampleSheet = workbook.addWorksheet('Student Template');
+        const headers = ['username', 'full_name', 'email', 'student_code'];
+        
+        const sampleHeaderRow = sampleSheet.getRow(1);
+        headers.forEach((header, index) => {
+            const cell = sampleHeaderRow.getCell(index + 1);
+            cell.value = header;
+            cell.font = { bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF90EE90' } };
+        });
+
+        // Add sample student data
+        availableStudents.forEach((student, index) => {
+            const row = sampleSheet.getRow(index + 2);
+            row.getCell(1).value = student.username;
+            row.getCell(2).value = student.full_name;
+            row.getCell(3).value = student.email;
+            row.getCell(4).value = student.username; // Placeholder for student_code
+        });
+
+        sampleSheet.getColumn(1).width = 20;
+        sampleSheet.getColumn(2).width = 30;
+        sampleSheet.getColumn(3).width = 30;
+        sampleSheet.getColumn(4).width = 15;
+
+        // ===== ELIGIBLE STUDENTS LIST SHEET =====
+        const eligibleSheet = workbook.addWorksheet('Eligible Students List');
+        
+        // Get ALL eligible students (not limited to 20)
+        const allEligibleStudents = await this.userRepository
+            .createQueryBuilder('user')
+            .leftJoin('classroom_members', 'cm', 'cm.user_id = user.id AND cm.classroom_id = :classroomId', { classroomId })
+            .leftJoin('faculties', 'faculty', 'faculty.id = user.faculty_id')
+            .where('user.role = :role', { role: UserRole.STUDENT })
+            .andWhere('user.faculty_id = :facultyId', { facultyId })
+            .andWhere('cm.id IS NULL') // Chưa có trong classroom
+            .andWhere('user.isActive = :isActive', { isActive: true })
+            .select([
+                'user.id',
+                'user.username', 
+                'user.full_name', 
+                'user.email',
+                'faculty.name'
+            ])
+            .orderBy('user.full_name', 'ASC')
+            .getMany();
+
+        const eligibleHeaderRow = eligibleSheet.getRow(1);
+        const eligibleHeaders = ['STT', 'username', 'full_name', 'email', 'faculty_name'];
+        eligibleHeaders.forEach((header, index) => {
+            const cell = eligibleHeaderRow.getCell(index + 1);
+            cell.value = header;
+            cell.font = { bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFADD8E6' } };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        // Add title row
+        const titleRow = eligibleSheet.getRow(0);
+        const titleCell = titleRow.getCell(1);
+        titleCell.value = `DANH SÁCH TẤT CẢ SINH VIÊN ĐỦ ĐIỀU KIỆN THÊM VÀO LỚP (Khoa: ${classroom.subject?.faculty?.name || 'N/A'})`;
+        titleCell.font = { bold: true, size: 12, color: { argb: 'FF000080' } };
+        eligibleSheet.mergeCells('A1:E1');
+
+        // Add note row
+        const noteRow = eligibleSheet.getRow(2);
+        noteRow.getCell(1).value = 'LƯU Ý: Copy username từ danh sách này sang sheet "Student Template" để import';
+        noteRow.getCell(1).font = { italic: true, color: { argb: 'FFFF0000' } };
+        eligibleSheet.mergeCells('A2:E2');
+
+        // Adjust header row to be row 3
+        const newHeaderRow = eligibleSheet.getRow(3);
+        eligibleHeaders.forEach((header, index) => {
+            const cell = newHeaderRow.getCell(index + 1);
+            cell.value = header;
+            cell.font = { bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFADD8E6' } };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        // Add all eligible students data
+        allEligibleStudents.forEach((student, index) => {
+            const row = eligibleSheet.getRow(index + 4); // Start from row 4
+            row.getCell(1).value = index + 1; // STT
+            row.getCell(2).value = student.username;
+            row.getCell(3).value = student.full_name;
+            row.getCell(4).value = student.email;
+            row.getCell(5).value = classroom.subject?.faculty?.name || 'N/A';
+
+            // Add border to all cells
+            for (let i = 1; i <= 5; i++) {
+                row.getCell(i).border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            }
+        });
+
+        eligibleSheet.getColumn(1).width = 8; // STT
+        eligibleSheet.getColumn(2).width = 20; // username
+        eligibleSheet.getColumn(3).width = 30; // full_name
+        eligibleSheet.getColumn(4).width = 30; // email
+        eligibleSheet.getColumn(5).width = 25; // faculty_name
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return Buffer.from(buffer);
+    }
+
+    /**
+     * Import students from Excel to classroom
+     */
+    async importStudentsFromExcel(
+        classroomId: number, 
+        file: Express.Multer.File
+    ): Promise<ImportStudentResponseDto> {
+        if (!file) {
+            throw new BadRequestException('No file provided');
+        }
+
+        // Kiểm tra classroom tồn tại
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: ['subject', 'subject.faculty']
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        const facultyId = classroom.subject?.faculty_id;
+        if (!facultyId) {
+            throw new BadRequestException('Subject faculty information is missing');
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(file.buffer);
+
+        const worksheet = workbook.getWorksheet('Student Template');
+        if (!worksheet) {
+            throw new BadRequestException('Invalid Excel file: "Student Template" sheet not found');
+        }
+
+        const errors: Array<{ row: number; username: string; message: string }> = [];
+        const importedStudents: Array<{
+            username: string;
+            full_name: string;
+            email: string;
+            role: string;
+        }> = [];
+
+        let successCount = 0;
+
+        // Process each row (skip header)
+        for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+            const row = worksheet.getRow(rowNumber);
+            const username = row.getCell(1).value?.toString().trim();
+
+            // Skip empty rows
+            if (!username) continue;
+
+            try {
+                // Tìm user trong database
+                const user = await this.userRepository
+                    .createQueryBuilder('user')
+                    .where('user.username = :username', { username })
+                    .andWhere('user.role = :role', { role: UserRole.STUDENT })
+                    .andWhere('user.isActive = :isActive', { isActive: true })
+                    .select(['user.id', 'user.username', 'user.full_name', 'user.email', 'user.faculty_id'])
+                    .getOne();
+
+                if (!user) {
+                    errors.push({
+                        row: rowNumber,
+                        username,
+                        message: 'Sinh viên không tồn tại hoặc không có quyền student'
+                    });
+                    continue;
+                }
+
+                // Kiểm tra sinh viên có thuộc khoa của môn học không
+                if (!user.faculty_id || user.faculty_id !== facultyId) {
+                    const facultyName = classroom.subject?.faculty?.name || 'Unknown';
+                    errors.push({
+                        row: rowNumber,
+                        username,
+                        message: `Sinh viên không thuộc khoa ${facultyName}`
+                    });
+                    continue;
+                }
+
+                // Kiểm tra sinh viên đã có trong classroom chưa
+                const existingMember = await this.memberRepository.findOne({
+                    where: {
+                        classroom_id: classroomId,
+                        user_id: user.id,
+                        is_active: true
+                    }
+                });
+
+                if (existingMember) {
+                    errors.push({
+                        row: rowNumber,
+                        username,
+                        message: 'Sinh viên đã có trong lớp học'
+                    });
+                    continue;
+                }
+
+                // Thêm sinh viên vào classroom
+                const newMember = this.memberRepository.create({
+                    classroom_id: classroomId,
+                    user_id: user.id,
+                    role: ClassroomRole.STUDENT,
+                    is_active: true
+                });
+
+                await this.memberRepository.save(newMember);
+
+                importedStudents.push({
+                    username: user.username,
+                    full_name: user.full_name,
+                    email: user.email,
+                    role: ClassroomRole.STUDENT
+                });
+
+                successCount++;
+
+            } catch (error) {
+                errors.push({
+                    row: rowNumber,
+                    username,
+                    message: `Lỗi xử lý: ${error.message}`
+                });
+            }
+        }
+
+        return {
+            success: successCount,
+            errors,
+            imported_students: importedStudents
         };
     }
 }

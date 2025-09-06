@@ -29,6 +29,7 @@ import {
     JoinClassroomDto
 } from './dto/classroom.dto';
 import { AddClassroomMemberDto } from './dto/classroom-member.dto';
+import { ImportStudentResponseDto } from './dto/import-student.dto';
 import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
 import { UpdateClassroomStudentGradeDto } from './dto/classroom-student-grade.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -93,6 +94,55 @@ export class ClassroomController {
     @UseInterceptors(FileInterceptor('file'))
     async importFromExcel(@UploadedFile() file: Express.Multer.File) {
         return await this.classroomService.importFromExcel(file);
+    }
+
+    /**
+     * Download Excel template for student import to specific classroom
+     * GET /classrooms/:id/students/excel/template
+     */
+    @Get(':id/students/excel/template')
+    async downloadStudentExcelTemplate(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Res() res: Response
+    ) {
+        const buffer = await this.classroomService.downloadStudentExcelTemplate(classroomId);
+        res.set({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': 'attachment; filename=student_import_template.xlsx',
+            'Content-Length': buffer.length
+        });
+        res.end(buffer);
+    }
+
+    /**
+     * Download Excel with sample student data for specific classroom
+     * GET /classrooms/:id/students/excel/sample-data
+     */
+    @Get(':id/students/excel/sample-data')
+    async downloadStudentExcelWithSampleData(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Res() res: Response
+    ) {
+        const buffer = await this.classroomService.downloadStudentExcelWithSampleData(classroomId);
+        res.set({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': 'attachment; filename=student_import_sample.xlsx',
+            'Content-Length': buffer.length
+        });
+        res.end(buffer);
+    }
+
+    /**
+     * Import students from Excel file to specific classroom
+     * POST /classrooms/:id/students/excel/import
+     */
+    @Post(':id/students/excel/import')
+    @UseInterceptors(FileInterceptor('file'))
+    async importStudentsFromExcel(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @UploadedFile() file: Express.Multer.File
+    ): Promise<ImportStudentResponseDto> {
+        return await this.classroomService.importStudentsFromExcel(classroomId, file);
     }
 
     @Put(':id')

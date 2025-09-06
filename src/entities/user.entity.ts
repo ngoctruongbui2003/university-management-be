@@ -1,5 +1,6 @@
 import { UserRole } from 'src/shared/constants/enum';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, JoinColumn, ManyToOne } from 'typeorm';
+import { Faculty } from './faculty.entity';
 
 @Entity()
 export class User {
@@ -31,9 +32,17 @@ export class User {
     @Column({ default: false })
     isDeleted: boolean;
 
+    @Column({ nullable: true })
+    faculty_id: number;
+
     @CreateDateColumn()
     created_at: Date;
 
     @UpdateDateColumn()
     updated_at: Date;
+
+    // Relationship
+    @ManyToOne(() => Faculty, faculty => faculty.id)
+    @JoinColumn({ name: 'faculty_id' })
+    faculty: Faculty;
 }
