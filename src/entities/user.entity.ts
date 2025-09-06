@@ -1,6 +1,8 @@
 import { UserRole } from 'src/shared/constants/enum';
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, JoinColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, JoinColumn, ManyToOne, OneToOne } from 'typeorm';
 import { Faculty } from './faculty.entity';
+import { Student } from './student.entity';
+import { Teacher } from './teacher.entity';
 
 @Entity()
 export class User {
@@ -45,4 +47,12 @@ export class User {
     @ManyToOne(() => Faculty, faculty => faculty.id)
     @JoinColumn({ name: 'faculty_id' })
     faculty: Faculty;
+
+    @OneToOne(() => Student, student => student.user)
+    @JoinColumn()
+    student: Student;
+
+    @OneToOne(() => Teacher, teacher => teacher.user)
+    @JoinColumn()
+    teacher: Teacher;
 }

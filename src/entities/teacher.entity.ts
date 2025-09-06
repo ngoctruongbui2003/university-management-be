@@ -13,6 +13,9 @@ export class Teacher {
     @Column({ length: 100 })
     email: string;
 
+    @Column({ length: 20, nullable: true })
+    teacher_code: string;
+
     @Column({ length: 100 })
     phone: string;
 

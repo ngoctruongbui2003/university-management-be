@@ -5,8 +5,10 @@ import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { Teacher } from '../../entities/teacher.entity';
 import { Faculty } from '../../entities/faculty.entity';
+import { User } from '../../entities/user.entity';
 import * as ExcelJS from 'exceljs';
-import { Gender } from '../../shared/constants/enum';
+import { Gender, UserRole } from '../../shared/constants/enum';
+import { hashPassword } from 'src/shared/utils';
 
 @Injectable()
 export class TeacherService {
@@ -15,11 +17,86 @@ export class TeacherService {
     private teacherRepository: Repository<Teacher>,
     @InjectRepository(Faculty)
     private facultyRepository: Repository<Faculty>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   async create(createTeacherDto: CreateTeacherDto): Promise<Teacher> {
-    const teacher = this.teacherRepository.create(createTeacherDto);
-    return await this.teacherRepository.save(teacher);
+    // Get faculty with relations
+    const faculty = await this.facultyRepository.findOne({
+      where: { id: createTeacherDto.faculty_id },
+    });
+
+    if (!faculty) {
+      throw new NotFoundException(`Faculty with ID ${createTeacherDto.faculty_id} not found`);
+    }
+
+    // Generate teacher code
+    const teacherCode = await this.generateTeacherCode(faculty.code);
+
+    const queryRunner = this.teacherRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const teacher = queryRunner.manager.create(Teacher, {
+        full_name: createTeacherDto.full_name,
+        email: createTeacherDto.email,
+        teacher_code: teacherCode,
+        phone: createTeacherDto.phone,
+        address: createTeacherDto.address,
+        gender: createTeacherDto.gender,
+        birth_date: createTeacherDto.birth_date,
+        qualification: createTeacherDto.qualification,
+        department: createTeacherDto.department,
+        faculty_id: createTeacherDto.faculty_id,
+      });
+
+      const passwordHashed = await hashPassword("matkhau123");
+
+      const user = queryRunner.manager.create(User, {
+        username: teacherCode,
+        email: createTeacherDto.email,
+        password: passwordHashed,
+        role: UserRole.TEACHER,
+        full_name: createTeacherDto.full_name,
+        teacher: teacher,
+        faculty_id: faculty.id,
+      });
+
+      await queryRunner.manager.save(teacher);
+      await queryRunner.manager.save(user);
+
+      await queryRunner.commitTransaction();
+      return teacher;
+
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Generate teacher code in format: GV[faculty_code][4_digit_sequential_number]
+   * Example: GVKT0001 (faculty code: KT, sequential: 0001)
+   */
+  private async generateTeacherCode(facultyCode: string): Promise<string> {
+    // Build the prefix (GV + faculty code)
+    const prefix = 'GV' + facultyCode;
+    
+    // Count existing teachers with this faculty to get next sequential number
+    const existingTeachersCount = await this.teacherRepository
+      .createQueryBuilder('teacher')
+      .innerJoin('teacher.faculty', 'faculty')
+      .where('faculty.code = :facultyCode', { facultyCode })
+      .getCount();
+    
+    // Generate next sequential number (4 digits, padded with zeros)
+    const sequentialNumber = (existingTeachersCount + 1).toString().padStart(4, '0');
+    
+    return prefix + sequentialNumber;
   }
 
   async findAll(): Promise<Teacher[]> {

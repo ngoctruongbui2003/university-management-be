@@ -29,7 +29,7 @@ export class Student {
     birth_date: Date;
 
     // ---------------Relationships---------------
-    @OneToOne(() => User, user => user.id)
+    @OneToOne(() => User, user => user.student)
     user: User;
 
     @ManyToOne(() => Classes, classes => classes.id)

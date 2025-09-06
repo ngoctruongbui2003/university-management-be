@@ -7,7 +7,9 @@ import { Student } from '../../entities/student.entity';
 import { Classes } from '../../entities/classes.entity';
 import { AcademicYear, AcademicYearStatus } from '../../entities/academic-year.entity';
 import * as ExcelJS from 'exceljs';
-import { Gender } from '../../shared/constants/enum';
+import { Gender, UserRole } from '../../shared/constants/enum';
+import { User } from '../../entities/user.entity';
+import { hashPassword } from 'src/shared/utils';
 
 @Injectable()
 export class StudentService {
@@ -18,6 +20,8 @@ export class StudentService {
     private classRepository: Repository<Classes>,
     @InjectRepository(AcademicYear)
     private academicYearRepository: Repository<AcademicYear>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   async create(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -37,18 +41,46 @@ export class StudentService {
       classEntity.academic_year
     );
 
-    const student = this.studentRepository.create({
-      full_name: createStudentDto.full_name,
-      email: createStudentDto.email,
-      phone: createStudentDto.phone,
-      address: createStudentDto.address,
-      gender: createStudentDto.gender,
-      birth_date: createStudentDto.birth_date,
-      student_code: studentCode,
-      classes: classEntity, // Gán object Classes vào relationship field
-    });
-    
-    return await this.studentRepository.save(student);
+    const queryRunner = this.studentRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const student = queryRunner.manager.create(Student, {
+        full_name: createStudentDto.full_name,
+        email: createStudentDto.email,
+        phone: createStudentDto.phone,
+        address: createStudentDto.address,
+        gender: createStudentDto.gender,
+        birth_date: createStudentDto.birth_date,
+        student_code: studentCode,
+        classes: classEntity,
+      });
+
+      const passwordHashed = await hashPassword("matkhau123");
+
+      const user = queryRunner.manager.create(User, {
+        username: studentCode,
+        email: createStudentDto.email,
+        password: passwordHashed,
+        role: UserRole.STUDENT,
+        full_name: createStudentDto.full_name,
+        student: student,
+        faculty_id: classEntity.major.faculty.id,
+      });
+
+      await queryRunner.manager.save(student);
+      await queryRunner.manager.save(user);
+
+      await queryRunner.commitTransaction();
+      return student;
+
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   /**
