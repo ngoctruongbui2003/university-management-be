@@ -371,6 +371,16 @@ export class ClassroomService {
     }
 
     async getAvailableUsers(classroomId: number, role?: string, search?: string) {
+        // Get classroom with subject and faculty info
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: ['subject', 'subject.faculty']
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
         // Get current member IDs
         const currentMembers = await this.memberRepository.find({
             where: { classroom_id: classroomId }
@@ -379,7 +389,13 @@ export class ClassroomService {
 
         // Build query for available users
         let query = this.userRepository.createQueryBuilder('user')
-            .where('user.id NOT IN (:...currentMemberIds)', { currentMemberIds: currentMemberIds.length > 0 ? currentMemberIds : [0] });
+            .where('user.id NOT IN (:...currentMemberIds)', { currentMemberIds: currentMemberIds.length > 0 ? currentMemberIds : [0] })
+            .andWhere('user.isActive = :isActive', { isActive: true });
+
+        // Add faculty filter for students - only students from same faculty as the subject
+        if (role === UserRole.STUDENT && classroom.subject?.faculty_id) {
+            query = query.andWhere('user.faculty_id = :facultyId', { facultyId: classroom.subject.faculty_id });
+        }
 
         // Add role filter if provided
         if (role) {
