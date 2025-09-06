@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsNumber, IsEnum, IsArray, IsBoolean, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber, IsEnum, IsArray, IsBoolean, MaxLength, IsDateString } from 'class-validator';
 import { PostType, FileAttachment } from '../../../entities/classroom-post.entity';
 import { ClassroomRole } from '../../../entities/classroom-member.entity';
 
@@ -21,12 +21,8 @@ export class CreateClassroomDto {
     description?: string;
 
     @IsOptional()
-    @IsNumber()
-    sections?: number;
-
-    @IsOptional()
-    @IsString()
-    schedule?: string;
+    @IsArray()
+    schedules?: { sections: number; schedule: string }[];
 
     @IsOptional()
     @IsString()
@@ -39,6 +35,14 @@ export class CreateClassroomDto {
     @IsOptional()
     @IsString()
     type?: string;
+
+    @IsOptional()
+    @IsDateString()
+    start_date?: string;
+
+    @IsOptional()
+    @IsDateString()
+    end_date?: string;
 
     @IsOptional()
     @IsBoolean()
@@ -60,8 +64,37 @@ export class UpdateClassroomDto {
     description?: string;
 
     @IsOptional()
+    @IsString()
+    location?: string;
+
+    @IsOptional()
+    @IsNumber()
+    enrolled?: number;
+
+    @IsOptional()
+    @IsString()
+    type?: string;
+
+    @IsOptional()
+    @IsDateString()
+    start_date?: string;
+
+    @IsOptional()
+    @IsDateString()
+    end_date?: string;
+
+    @IsOptional()
     @IsBoolean()
     is_active?: boolean;
+
+    @IsOptional()
+    @IsArray()
+    schedules?: { 
+        id?: number;
+        sections: number; 
+        schedule: string;
+        is_active?: boolean;
+    }[];
 }
 
 export class CreatePostDto {

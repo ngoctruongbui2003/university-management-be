@@ -28,6 +28,7 @@ import {
     UpdatePostDto,
     JoinClassroomDto
 } from './dto/classroom.dto';
+import { AddClassroomMemberDto } from './dto/classroom-member.dto';
 import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
 import { UpdateClassroomStudentGradeDto } from './dto/classroom-student-grade.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -52,6 +53,61 @@ export class ClassroomController {
     @Get()
     async getAllClassrooms() {
         return await this.classroomService.getAllClassrooms();
+    }
+
+    /**
+     * Download Excel template for classroom import
+     * GET /classrooms/excel/template
+     */
+    @Get('excel/template')
+    async downloadExcelTemplate(@Res() res: Response) {
+        const buffer = await this.classroomService.downloadExcelTemplate();
+        res.set({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': 'attachment; filename=classroom_template.xlsx',
+            'Content-Length': buffer.length
+        });
+        res.end(buffer);
+    }
+
+    /**
+     * Download Excel with sample data
+     * GET /classrooms/excel/sample
+     */
+    @Get('excel/sample-data')
+    async downloadExcelWithSampleData(@Res() res: Response) {
+        const buffer = await this.classroomService.downloadExcelWithSampleData();
+        res.set({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': 'attachment; filename=classroom_sample.xlsx',
+            'Content-Length': buffer.length
+        });
+        res.end(buffer);
+    }
+
+    /**
+     * Import classrooms from Excel file
+     * POST /classrooms/excel/import
+     */
+    @Post('excel/import')
+    @UseInterceptors(FileInterceptor('file'))
+    async importFromExcel(@UploadedFile() file: Express.Multer.File) {
+        return await this.classroomService.importFromExcel(file);
+    }
+
+    @Put(':id')
+    async updateClassroom(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Body() updateDto: UpdateClassroomDto
+    ) {
+        return await this.classroomService.updateClassroom(classroomId, updateDto);
+    }
+
+    @Delete(':id')
+    async deleteClassroom(
+        @Param('id', ParseIntPipe) classroomId: number,
+    ) {
+        return await this.classroomService.deleteClassroom(classroomId);
     }
 
     /**
@@ -197,6 +253,32 @@ export class ClassroomController {
         @Param('id', ParseIntPipe) classroomId: number,
     ) {
         return await this.classroomService.getClassroomMembers(classroomId);
+    }
+
+    /**
+     * Lấy danh sách user có thể thêm vào classroom
+     * GET /classrooms/:id/available-users
+     */
+    @Get(':id/available-users')
+    async getAvailableUsers(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Query('role') role?: string,
+        @Query('search') search?: string
+    ) {
+        return await this.classroomService.getAvailableUsers(classroomId, role, search);
+    }
+
+    /**
+     * Thêm thành viên vào classroom
+     * POST /classrooms/:id/members
+     */
+    @Post(':id/members')
+    @HttpCode(HttpStatus.CREATED)
+    async addClassroomMembers(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Body() addMemberDto: AddClassroomMemberDto
+    ) {
+        return await this.classroomService.addClassroomMembers(classroomId, addMemberDto);
     }
 
     /**

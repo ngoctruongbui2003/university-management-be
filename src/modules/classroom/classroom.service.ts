@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In, Not, IsNull } from 'typeorm';
+import * as ExcelJS from 'exceljs';
 import { Classroom } from '../../entities/classroom.entity';
+import { ClassroomSchedule } from '../../entities/classroom-schedule.entity';
 import { ClassroomPost, PostType, FileAttachment } from '../../entities/classroom-post.entity';
 import { ClassroomMember, ClassroomRole } from '../../entities/classroom-member.entity';
 import { Course } from '../../entities/course.entity';
@@ -18,6 +20,7 @@ import {
     ClassroomResponseDto,
     PostResponseDto
 } from './dto/classroom.dto';
+import { AddClassroomMemberDto, ClassroomMemberResponseDto } from './dto/classroom-member.dto';
 import { 
     CreateClassroomStudentGradeDto, 
     UpdateClassroomStudentGradeDto, 
@@ -28,12 +31,16 @@ import { Classes } from 'src/entities/classes.entity';
 import { Subject } from 'src/entities/subject.entity';
 import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
 import { ClassroomSection } from 'src/entities/classsroom-section.entity';
+import { UserRole } from 'src/shared/constants/enum';
 
 @Injectable()
 export class ClassroomService {
     constructor(
         @InjectRepository(Classroom)
         private classroomRepository: Repository<Classroom>,
+
+        @InjectRepository(ClassroomSchedule)
+        private classroomScheduleRepository: Repository<ClassroomSchedule>,
         
         @InjectRepository(ClassroomPost)
         private postRepository: Repository<ClassroomPost>,
@@ -257,12 +264,214 @@ export class ClassroomService {
         // Save classroom first to get the ID
         const savedClassroom = await this.classroomRepository.save(classroom);
 
+        // Create classroom schedules if provided
+        if (createDto.schedules && createDto.schedules.length > 0) {
+            const schedulePromises = createDto.schedules.map(scheduleDto => {
+                const schedule = this.classroomScheduleRepository.create({
+                    sections: scheduleDto.sections,
+                    schedule: scheduleDto.schedule,
+                    classroom: savedClassroom
+                });
+                return this.classroomScheduleRepository.save(schedule);
+            });
+            await Promise.all(schedulePromises);
+        }
+
         if (teacher) {
             // Add teacher to classroom member
             await this.addMember(savedClassroom.id, teacher.id, ClassroomRole.TEACHER);
         }
 
-        return this.classroomRepository.save(classroom);
+        // Get the classroom with schedules
+        return this.classroomRepository.findOne({
+            where: { id: savedClassroom.id },
+            relations: ['schedules']
+        });
+    }
+
+    async updateClassroom(classroomId: number, updateDto: UpdateClassroomDto): Promise<Classroom> {
+        // Get existing classroom
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: ['schedules']
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        // Update basic classroom info
+        if (updateDto.name) classroom.name = updateDto.name;
+        if (updateDto.description !== undefined) classroom.description = updateDto.description;
+        if (updateDto.location !== undefined) classroom.location = updateDto.location;
+        if (updateDto.enrolled !== undefined) classroom.enrolled = updateDto.enrolled;
+        if (updateDto.type !== undefined) classroom.type = updateDto.type;
+        if (updateDto.start_date !== undefined) classroom.start_date = new Date(updateDto.start_date);
+        if (updateDto.end_date !== undefined) classroom.end_date = new Date(updateDto.end_date);
+        if (updateDto.is_active !== undefined) classroom.is_active = updateDto.is_active;
+
+        // Save classroom changes
+        const savedClassroom = await this.classroomRepository.save(classroom);
+
+        // Handle schedules if provided
+        if (updateDto.schedules && updateDto.schedules.length > 0) {
+            // Get existing schedule IDs
+            const existingScheduleIds = classroom.schedules.map(s => s.id);
+            
+            // Process each schedule in the update DTO
+            for (const scheduleDto of updateDto.schedules) {
+                if (scheduleDto.id) {
+                    // Update existing schedule
+                    const existingSchedule = await this.classroomScheduleRepository.findOne({
+                        where: { id: scheduleDto.id }
+                    });
+
+                    if (existingSchedule) {
+                        existingSchedule.sections = scheduleDto.sections;
+                        existingSchedule.schedule = scheduleDto.schedule;
+                        await this.classroomScheduleRepository.save(existingSchedule);
+                        
+                        // Remove from existingScheduleIds as it's been processed
+                        const index = existingScheduleIds.indexOf(scheduleDto.id);
+                        if (index > -1) {
+                            existingScheduleIds.splice(index, 1);
+                        }
+                    }
+                } else {
+                    // Create new schedule
+                    const newSchedule = this.classroomScheduleRepository.create({
+                        sections: scheduleDto.sections,
+                        schedule: scheduleDto.schedule,
+                        classroom: savedClassroom
+                    });
+                    await this.classroomScheduleRepository.save(newSchedule);
+                }
+            }
+
+            // Delete schedules that weren't included in the update
+            if (existingScheduleIds.length > 0) {
+                await this.classroomScheduleRepository.delete(existingScheduleIds);
+            }
+        }
+
+        // Return updated classroom with schedules
+        return this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: ['schedules']
+        });
+    }
+
+    async getAvailableUsers(classroomId: number, role?: string, search?: string) {
+        // Get current member IDs
+        const currentMembers = await this.memberRepository.find({
+            where: { classroom_id: classroomId }
+        });
+        const currentMemberIds = currentMembers.map(m => m.user_id);
+
+        // Build query for available users
+        let query = this.userRepository.createQueryBuilder('user')
+            .where('user.id NOT IN (:...currentMemberIds)', { currentMemberIds: currentMemberIds.length > 0 ? currentMemberIds : [0] });
+
+        // Add role filter if provided
+        if (role) {
+            query = query.andWhere('user.role = :role', { role });
+        }
+
+        // Add search filter if provided
+        if (search) {
+            query = query.andWhere(
+                '(user.username LIKE :search OR user.full_name LIKE :search OR user.email LIKE :search)',
+                { search: `%${search}%` }
+            );
+        }
+
+        // Get users with pagination
+        const users = await query
+            .select([
+                'user.id',
+                'user.username',
+                'user.full_name',
+                'user.email',
+                'user.role'
+            ])
+            .orderBy('user.full_name', 'ASC')
+            .getMany();
+
+        return users;
+    }
+
+    async addClassroomMembers(classroomId: number, addMemberDto: AddClassroomMemberDto): Promise<ClassroomMemberResponseDto[]> {
+        // Check if classroom exists
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId }
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        // Get users by usernames
+        const users = await this.userRepository.find({
+            where: { username: In(addMemberDto.usernames) }
+        });
+
+        if (users.length === 0) {
+            throw new NotFoundException('No users found with the provided usernames');
+        }
+
+        // Check for existing members
+        const existingMembers = await this.memberRepository.find({
+            where: {
+                classroom_id: classroomId,
+                user_id: In(users.map(u => u.id))
+            }
+        });
+
+        // Filter out users that are already members
+        const existingUserIds = existingMembers.map(m => m.user_id);
+        const newUsers = users.filter(u => !existingUserIds.includes(u.id));
+
+        if (newUsers.length === 0) {
+            throw new ConflictException('All users are already members of this classroom');
+        }
+
+        // Create new members
+        const newMembers = newUsers.map(user => {
+            return this.memberRepository.create({
+                classroom_id: classroomId,
+                user_id: user.id,
+                role: addMemberDto.role,
+                is_active: true
+            });
+        });
+
+        // Save all new members
+        const savedMembers = await this.memberRepository.save(newMembers);
+
+        // Return member details with user information
+        return savedMembers.map(member => ({
+            id: member.id,
+            user_id: member.user_id,
+            classroom_id: member.classroom_id,
+            role: member.role,
+            is_active: member.is_active,
+            joined_at: member.joined_at,
+            user: users.find(u => u.id === member.user_id)
+        }));
+    }
+
+    async deleteClassroom(classroomId: number) {
+        // Xóa thành viên trong lớp
+        await this.memberRepository.delete({ classroom_id: classroomId });
+    
+        // Xóa lịch học
+        await this.classroomScheduleRepository.delete({ classroom: { id: classroomId } });
+    
+        // Xóa section
+        await this.classroomSectionRepository.delete({ classroomId: classroomId });
+    
+        // Cuối cùng mới xóa classroom
+        await this.classroomRepository.delete(classroomId);
     }
 
     async getAllClassrooms() {
@@ -298,37 +507,12 @@ export class ClassroomService {
                 id: In(classroomIds)
             },
             relations: [
-                'subject'
+                'subject',
+                'schedules'
             ]
         });
 
-        // Map classrooms to response format
-        return classrooms.map(classroom => {
-            const membership = memberships.find(m => m.classroom_id === classroom.id);
-            return {
-                id: classroom.id,
-                name: classroom.name,
-                description: classroom.description,
-                credits: classroom.credits,
-                sections: classroom.sections,
-                schedule: classroom.schedule,
-                location: classroom.location,
-                enrolled: classroom.enrolled,
-                is_active: classroom.is_active,
-                semester: classroom.semester,
-                type: classroom.type,
-                instructor: classroom.instructor,
-                subject: classroom.subject ? {
-                    id: classroom.subject.id,
-                    name: classroom.subject.name,
-                    credits: classroom.subject.credits,
-                    description: classroom.subject.description
-                } : null,
-                user_role: membership?.role || null,
-                created_at: classroom.created_at,
-                updated_at: classroom.updated_at
-            };
-        });
+        return classrooms;
     }
 
     /**
@@ -427,6 +611,9 @@ export class ClassroomService {
     async getClassroomDetail(classroomId: number): Promise<any> {
         const classroom = await this.classroomRepository.findOne({
             where: { id: classroomId },
+            relations: [
+                'schedules'
+            ]
         });
         
         return [
@@ -988,6 +1175,538 @@ export class ClassroomService {
     /**
      * Lấy điểm của tất cả học sinh trong classroom
      */
+    async importFromExcel(file: Express.Multer.File): Promise<{
+        success: number;
+        errors: Array<{ row: number; message: string }>;
+    }> {
+        if (!file) {
+            throw new BadRequestException('No file provided');
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(file.buffer);
+
+        const worksheet = workbook.getWorksheet('Classroom Template');
+        const subjectSheet = workbook.getWorksheet('Subject Options');
+        if (!worksheet || !subjectSheet) {
+            throw new BadRequestException('Invalid Excel file: Required sheets not found');
+        }
+
+        // Build subject name to ID mapping
+        const subjectMapping = new Map<string, number>();
+        subjectSheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Skip header
+            const [, name, id] = row.values as any[];
+            if (name && id) {
+                subjectMapping.set(name.toString().trim(), id);
+            }
+        });
+
+        const errors: Array<{ row: number; message: string }> = [];
+        const classroomsToCreate = [];
+
+        // Process each row
+        for await (const row of worksheet.getRows(2, worksheet.rowCount)) { // Skip header row
+            try {
+                const values = row.values as any[];
+                if (!values || values.length === 0) continue;
+
+                const [, subject, teacher, semester, location, schedules, startDate, endDate] = values;
+
+                // Skip empty rows
+                if (!subject && !teacher && !semester) continue;
+
+                // Validate required fields
+                if (!subject) {
+                    errors.push({ row: row.number, message: 'Subject is required' });
+                    continue;
+                }
+
+                if (!teacher) {
+                    errors.push({ row: row.number, message: 'Teacher is required' });
+                    continue;
+                }
+
+                if (!semester) {
+                    errors.push({ row: row.number, message: 'Semester is required' });
+                    continue;
+                }
+
+                // Validate semester format
+                const semesterMatch = semester.toString().match(/^HK[1-3] \d{4}-\d{4}$/);
+                if (!semesterMatch) {
+                    errors.push({ row: row.number, message: 'Invalid semester format. Expected: HK[1-3] YYYY-YYYY (e.g., HK1 2025-2026)' });
+                    continue;
+                }
+
+                // Get subject ID from mapping
+                const subjectName = subject.toString().trim();
+                const subjectId = subjectMapping.get(subjectName);
+                if (!subjectId) {
+                    errors.push({ row: row.number, message: `Subject "${subjectName}" not found in Subject Options sheet` });
+                    continue;
+                }
+
+                // Validate subject exists in database
+                const subjectExists = await this.subjectRepository.findOne({
+                    where: { id: subjectId }
+                });
+                if (!subjectExists) {
+                    errors.push({ row: row.number, message: `Subject with ID ${subjectId} not found in database` });
+                    continue;
+                }
+
+                // Validate teacher username exists
+                const teacherExists = await this.userRepository.findOne({
+                    where: { 
+                        username: teacher.toString().trim(),
+                        role: UserRole.TEACHER
+                    }
+                });
+                if (!teacherExists) {
+                    errors.push({ row: row.number, message: `Invalid teacher username: ${teacher}` });
+                    continue;
+                }
+
+                // Parse schedules
+                const scheduleList = [];
+                if (schedules) {
+                    const scheduleItems = schedules.toString().split(',').map(s => s.trim());
+                    let hasError = false;
+                    for (const item of scheduleItems) {
+                        const match = item.match(/^(\d+)(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/);
+                        if (!match) {
+                            errors.push({ row: row.number, message: `Invalid schedule format: ${item}. Expected format: [section]Day (e.g., 1Mon, 2Fri)` });
+                            hasError = true;
+                            break;
+                        }
+                        scheduleList.push({
+                            sections: parseInt(match[1]),
+                            schedule: match[2]
+                        });
+                    }
+                    if (hasError) continue;
+                }
+
+                // Parse dates
+                let parsedStartDate, parsedEndDate;
+                if (startDate) {
+                    const match = startDate.toString().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                    if (!match) {
+                        errors.push({ row: row.number, message: 'Invalid start date format. Expected: DD/MM/YYYY' });
+                        continue;
+                    }
+                    parsedStartDate = `${match[3]}-${match[2]}-${match[1]}`;
+                }
+
+                if (endDate) {
+                    const match = endDate.toString().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                    if (!match) {
+                        errors.push({ row: row.number, message: 'Invalid end date format. Expected: DD/MM/YYYY' });
+                        continue;
+                    }
+                    parsedEndDate = `${match[3]}-${match[2]}-${match[1]}`;
+                }
+
+                // Create classroom object
+                classroomsToCreate.push({
+                    subject_id: subjectId,
+                    teacher_username: teacher.toString().trim(),
+                    semester: semester.toString().trim(),
+                    location: location ? location.toString().trim() : undefined,
+                    type: 'main',
+                    schedules: scheduleList,
+                    start_date: parsedStartDate,
+                    end_date: parsedEndDate
+                });
+
+            } catch (error) {
+                errors.push({ row: row.number, message: `Error processing row: ${error.message}` });
+            }
+        }
+
+        // Create classrooms
+        let successCount = 0;
+        if (classroomsToCreate.length > 0) {
+            for (const classroomDto of classroomsToCreate) {
+                try {
+                    await this.createClassroom(classroomDto);
+                    successCount++;
+                } catch (error) {
+                    errors.push({
+                        row: classroomsToCreate.indexOf(classroomDto) + 2,
+                        message: `Failed to create classroom: ${error.message}`
+                    });
+                }
+            }
+        }
+
+        return {
+            success: successCount,
+            errors: errors
+        };
+    }
+
+    async downloadExcelTemplate(): Promise<Buffer> {
+        // Get all subjects and teachers
+        const subjects = await this.subjectRepository.find({
+            order: { name: 'ASC' }
+        });
+
+        const teachers = await this.userRepository.find({
+            where: { role: UserRole.TEACHER },
+            order: { full_name: 'ASC' }
+        });
+
+        if (subjects.length === 0) {
+            throw new NotFoundException('No subjects found. Please create at least one subject first.');
+        }
+
+        // Create workbook
+        const workbook = new ExcelJS.Workbook();
+
+        // ===== INSTRUCTION SHEET =====
+        const instructionSheet = workbook.addWorksheet('Hướng dẫn');
+        instructionSheet.getColumn(1).width = 80;
+
+        const instructions = [
+            'HƯỚNG DẪN IMPORT LỚP HỌC',
+            '',
+            '1. Điền đầy đủ thông tin vào sheet "Classroom Template"',
+            '2. Name: Tên lớp học (VD: HK1_2025_Lập trình web_N1)',
+            '3. Subject: Chọn môn học từ danh sách trong sheet "Subject Options"',
+            '4. Teacher: Chọn giảng viên từ danh sách trong sheet "Teacher Options"',
+            '5. Location: Địa điểm học (VD: C001, B203)',
+            '6. Type: Loại lớp (main, elective)',
+            '7. Schedules: Định dạng [section]Day (VD: 1Mon, 2Fri - section 1 vào thứ 2, section 2 vào thứ 6)',
+            '8. Start Date: Ngày bắt đầu (DD/MM/YYYY)',
+            '9. End Date: Ngày kết thúc (DD/MM/YYYY)',
+            '',
+            'LƯU Ý:',
+            '- Name, Subject và Teacher là bắt buộc',
+            '- Schedules phải theo đúng định dạng [section]Day',
+            '- Ngày tháng phải theo định dạng DD/MM/YYYY'
+        ];
+
+        instructions.forEach((instruction, index) => {
+            const row = instructionSheet.addRow([instruction]);
+            if (index === 0) {
+                row.getCell(1).font = { bold: true, size: 14, color: { argb: '0066CC' } };
+            } else if (instruction.startsWith('LƯU Ý:')) {
+                row.getCell(1).font = { bold: true, color: { argb: 'FF0000' } };
+            }
+        });
+
+        // ===== MAIN SHEET: Classroom Template =====
+        const worksheet = workbook.addWorksheet('Classroom Template');
+
+            worksheet.columns = [
+            { header: 'Subject', key: 'subject', width: 40 },
+            { header: 'Teacher', key: 'teacher', width: 30 },
+            { header: 'Semester', key: 'semester', width: 20 },
+            { header: 'Location', key: 'location', width: 15 },
+            { header: 'Schedules', key: 'schedules', width: 30 },
+            { header: 'Start Date', key: 'start_date', width: 15 },
+            { header: 'End Date', key: 'end_date', width: 15 }
+        ];
+
+        // Style header
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '4472C4' }
+            };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        // Add example row
+        worksheet.addRow({
+            subject: subjects[0].name,
+            teacher: teachers[0].username,
+            semester: 'HK1 2025-2026',
+            location: 'C001',
+            schedules: '1Mon, 2Fri',
+            start_date: '01/09/2025',
+            end_date: '20/11/2025'
+        });
+
+        // Style example row
+        const exampleRow = worksheet.getRow(2);
+        exampleRow.eachCell((cell) => {
+            cell.font = { italic: true, color: { argb: '808080' } };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'D3D3D3' } },
+                left: { style: 'thin', color: { argb: 'D3D3D3' } },
+                bottom: { style: 'thin', color: { argb: 'D3D3D3' } },
+                right: { style: 'thin', color: { argb: 'D3D3D3' } }
+            };
+        });
+
+        // ===== SUBJECT OPTIONS SHEET =====
+        const subjectSheet = workbook.addWorksheet('Subject Options');
+        subjectSheet.columns = [
+            { header: 'Subject Name', key: 'subject_name', width: 40 },
+            { header: 'Subject ID', key: 'subject_id', width: 15 },
+            { header: 'Credits', key: 'credits', width: 10 }
+        ];
+
+        // Style header
+        const subjectHeaderRow = subjectSheet.getRow(1);
+        subjectHeaderRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '4472C4' }
+            };
+        });
+
+        // Add subject data
+        subjects.forEach(subject => {
+            subjectSheet.addRow({
+                subject_name: subject.name,
+                subject_id: subject.id,
+                credits: subject.credits
+            });
+        });
+
+        // ===== TEACHER OPTIONS SHEET =====
+        const teacherSheet = workbook.addWorksheet('Teacher Options');
+        teacherSheet.columns = [
+            { header: 'Full Name', key: 'full_name', width: 40 },
+            { header: 'Username', key: 'username', width: 20 },
+            { header: 'Email', key: 'email', width: 40 }
+        ];
+
+        // Style header
+        const teacherHeaderRow = teacherSheet.getRow(1);
+        teacherHeaderRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '4472C4' }
+            };
+        });
+
+        // Add teacher data
+        teachers.forEach(teacher => {
+            teacherSheet.addRow({
+                full_name: teacher.full_name,
+                username: teacher.username,
+                email: teacher.email
+            });
+        });
+
+
+
+        // Create buffer and return
+        const buffer = await workbook.xlsx.writeBuffer();
+        return Buffer.from(buffer);
+    }
+
+    async downloadExcelWithSampleData(): Promise<Buffer> {
+        // Get all subjects and teachers
+        const subjects = await this.subjectRepository.find({
+            order: { name: 'ASC' }
+        });
+
+        const teachers = await this.userRepository.find({
+            where: { role: UserRole.TEACHER },
+            order: { full_name: 'ASC' }
+        });
+
+        if (subjects.length === 0) {
+            throw new NotFoundException('No subjects found. Please create at least one subject first.');
+        }
+
+        if (teachers.length === 0) {
+            throw new NotFoundException('No teachers found. Please create at least one teacher first.');
+        }
+
+        // Create workbook
+        const workbook = new ExcelJS.Workbook();
+
+        // ===== INSTRUCTION SHEET =====
+        const instructionSheet = workbook.addWorksheet('Hướng dẫn');
+        instructionSheet.getColumn(1).width = 80;
+
+        const instructions = [
+            'HƯỚNG DẪN IMPORT LỚP HỌC',
+            '',
+            '1. Điền đầy đủ thông tin vào sheet "Classroom Template"',
+            '2. Name: Tên lớp học (VD: HK1_2025_Lập trình web_N1)',
+            '3. Subject: Chọn môn học từ danh sách trong sheet "Subject Options"',
+            '4. Teacher: Chọn giảng viên từ danh sách trong sheet "Teacher Options"',
+            '5. Location: Địa điểm học (VD: C001, B203)',
+            '6. Type: Loại lớp (main, elective)',
+            '7. Schedules: Định dạng [section]Day (VD: 1Mon, 2Fri - section 1 vào thứ 2, section 2 vào thứ 6)',
+            '8. Start Date: Ngày bắt đầu (DD/MM/YYYY)',
+            '9. End Date: Ngày kết thúc (DD/MM/YYYY)',
+            '',
+            'LƯU Ý:',
+            '- Name, Subject và Teacher là bắt buộc',
+            '- Schedules phải theo đúng định dạng [section]Day',
+            '- Ngày tháng phải theo định dạng DD/MM/YYYY'
+        ];
+
+        instructions.forEach((instruction, index) => {
+            const row = instructionSheet.addRow([instruction]);
+            if (index === 0) {
+                row.getCell(1).font = { bold: true, size: 14, color: { argb: '0066CC' } };
+            } else if (instruction.startsWith('LƯU Ý:')) {
+                row.getCell(1).font = { bold: true, color: { argb: 'FF0000' } };
+            }
+        });
+
+        // ===== MAIN SHEET: Classroom Template =====
+        const worksheet = workbook.addWorksheet('Classroom Template');
+
+            worksheet.columns = [
+            { header: 'Subject', key: 'subject', width: 40 },
+            { header: 'Teacher', key: 'teacher', width: 30 },
+            { header: 'Semester', key: 'semester', width: 20 },
+            { header: 'Location', key: 'location', width: 15 },
+            { header: 'Schedules', key: 'schedules', width: 30 },
+            { header: 'Start Date', key: 'start_date', width: 15 },
+            { header: 'End Date', key: 'end_date', width: 15 }
+        ];
+
+        // Style header
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '4472C4' }
+            };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        // Generate sample data
+        const sampleData = [];
+        subjects.forEach((subject, index) => {
+            const teacher = teachers[index % teachers.length];
+            const section1 = (index % 5) + 1;
+            const section2 = ((index + 2) % 5) + 1;
+            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            const day1 = days[index % 5];
+            const day2 = days[(index + 2) % 5];
+
+            sampleData.push({
+                subject: subject.name,
+                teacher: teacher.username,
+                semester: 'HK1 2025-2026',
+                location: `C${(index + 1).toString().padStart(3, '0')}`,
+                schedules: `${section1}${day1}, ${section2}${day2}`,
+                start_date: '01/09/2025',
+                end_date: '20/11/2025'
+            });
+        });
+
+        // Add sample data
+        sampleData.forEach((data, index) => {
+            const row = worksheet.addRow(data);
+
+            // Style for data rows
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'D3D3D3' } },
+                    left: { style: 'thin', color: { argb: 'D3D3D3' } },
+                    bottom: { style: 'thin', color: { argb: 'D3D3D3' } },
+                    right: { style: 'thin', color: { argb: 'D3D3D3' } }
+                };
+            });
+
+            // Alternate row colors
+            if (index % 2 === 0) {
+                row.eachCell((cell) => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'F5F5F5' }
+                    };
+                });
+            }
+        });
+
+        // ===== SUBJECT OPTIONS SHEET =====
+        const subjectSheet = workbook.addWorksheet('Subject Options');
+        subjectSheet.columns = [
+            { header: 'Subject Name', key: 'subject_name', width: 40 },
+            { header: 'Subject ID', key: 'subject_id', width: 15 },
+            { header: 'Credits', key: 'credits', width: 10 }
+        ];
+
+        // Style header
+        const subjectHeaderRow = subjectSheet.getRow(1);
+        subjectHeaderRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '4472C4' }
+            };
+        });
+
+        // Add subject data
+        subjects.forEach(subject => {
+            subjectSheet.addRow({
+                subject_name: subject.name,
+                subject_id: subject.id,
+                credits: subject.credits
+            });
+        });
+
+        // ===== TEACHER OPTIONS SHEET =====
+        const teacherSheet = workbook.addWorksheet('Teacher Options');
+        teacherSheet.columns = [
+            { header: 'Full Name', key: 'full_name', width: 40 },
+            { header: 'Username', key: 'username', width: 20 },
+            { header: 'Email', key: 'email', width: 40 }
+        ];
+
+        // Style header
+        const teacherHeaderRow = teacherSheet.getRow(1);
+        teacherHeaderRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: '4472C4' }
+            };
+        });
+
+        // Add teacher data
+        teachers.forEach(teacher => {
+            teacherSheet.addRow({
+                full_name: teacher.full_name,
+                username: teacher.username,
+                email: teacher.email
+            });
+        });
+
+
+
+        // Create buffer and return
+        const buffer = await workbook.xlsx.writeBuffer();
+        return Buffer.from(buffer);
+    }
+
     async getClassroomGrades(classroomId: number): Promise<ClassroomStudentGradeResponseDto[]> {
         // Lấy tất cả học sinh trong classroom
         const students = await this.memberRepository.find({

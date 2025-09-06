@@ -4,6 +4,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { ClassroomController } from './classroom.controller';
 import { ClassroomService } from './classroom.service';
 import { Classroom } from '../../entities/classroom.entity';
+import { ClassroomSchedule } from '../../entities/classroom-schedule.entity';
 import { ClassroomPost } from '../../entities/classroom-post.entity';
 import { ClassroomMember } from '../../entities/classroom-member.entity';
 import { Course } from '../../entities/course.entity';
@@ -17,6 +18,7 @@ import { ClassroomStudentGrade } from 'src/entities/classroom-student-grade.enti
   imports: [
     TypeOrmModule.forFeature([
       Classroom,
+      ClassroomSchedule,
       ClassroomPost,
       ClassroomMember,
       Course,

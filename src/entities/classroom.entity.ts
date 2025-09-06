@@ -1,8 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
-import { Course } from './course.entity';
-import { User } from './user.entity';
 import { Subject } from './subject.entity';
 import { ClassroomMember } from './classroom-member.entity';
+import { ClassroomSchedule } from './classroom-schedule.entity';
 
 @Entity('classrooms')
 export class Classroom {
@@ -17,12 +16,6 @@ export class Classroom {
 
     @Column({ type: 'int', nullable: true })
     credits: number;
-
-    @Column({ type: 'int', nullable: true })
-    sections: number;
-
-    @Column({ length: 20, nullable: true })
-    schedule: string;
 
     @Column({ length: 20, nullable: true })
     location: string;
@@ -42,6 +35,12 @@ export class Classroom {
     @Column({ length: 20, nullable: true })
     instructor: string;
 
+    @Column({ type: 'date', nullable: true })
+    start_date: Date;
+
+    @Column({ type: 'date', nullable: true })
+    end_date: Date;
+
     @CreateDateColumn()
     created_at: Date;
 
@@ -55,4 +54,7 @@ export class Classroom {
 
     @OneToMany(() => ClassroomMember, member => member.classroom)
     members: ClassroomMember[];
+
+    @OneToMany(() => ClassroomSchedule, schedule => schedule.classroom)
+    schedules: ClassroomSchedule[];
 }
