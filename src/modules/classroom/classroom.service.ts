@@ -298,6 +298,13 @@ export class ClassroomService {
         });
     }
 
+    async getClassroom(classroomId: number): Promise<Classroom> {
+        return this.classroomRepository.findOne({
+            where: { id: classroomId },
+            relations: ['schedules', 'subject', 'members', 'members.user']
+        });
+    }
+
     async updateClassroom(classroomId: number, updateDto: UpdateClassroomDto): Promise<Classroom> {
         // Get existing classroom
         const classroom = await this.classroomRepository.findOne({

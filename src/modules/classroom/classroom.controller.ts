@@ -200,6 +200,13 @@ export class ClassroomController {
         return await this.classroomService.getClassroomDetail(classroomId);
     }
 
+    @Get('/:id/admin')
+    async getClassroomByIdAdmin(
+        @Param('id', ParseIntPipe) classroomId: number
+    ) {
+        return await this.classroomService.getClassroom(classroomId);
+    }
+
     /**
      * Tạo post mới (với file upload)
      * POST /classrooms/:id/posts
