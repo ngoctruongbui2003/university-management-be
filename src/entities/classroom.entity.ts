@@ -26,6 +26,9 @@ export class Classroom {
     @Column({ type: 'boolean', default: true })
     is_active: boolean;
 
+    @Column({ type: 'boolean', default: false })
+    allow_grade_editing: boolean;
+
     @Column({ length: 20, nullable: true })
     semester: string;
 

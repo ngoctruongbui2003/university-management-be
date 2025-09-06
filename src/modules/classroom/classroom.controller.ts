@@ -26,7 +26,8 @@ import {
     UpdateClassroomDto,
     CreatePostDto,
     UpdatePostDto,
-    JoinClassroomDto
+    JoinClassroomDto,
+    ToggleGradeEditingDto
 } from './dto/classroom.dto';
 import { AddClassroomMemberDto } from './dto/classroom-member.dto';
 import { ImportStudentResponseDto } from './dto/import-student.dto';
@@ -360,5 +361,17 @@ export class ClassroomController {
         @Body() updateDto: UpdateClassroomStudentGradeDto,
     ) {
         return await this.classroomService.updateStudentGrade(classroomId, userId, updateDto);
+    }
+
+    /**
+     * Toggle setting cho phép sửa điểm
+     * PUT /classrooms/:id/toggle-grade-editing
+     */
+    @Put(':id/toggle-grade-editing')
+    async toggleGradeEditing(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Body() toggleDto: ToggleGradeEditingDto
+    ) {
+        return await this.classroomService.toggleGradeEditing(classroomId, toggleDto.allow_grade_editing);
     }
 }

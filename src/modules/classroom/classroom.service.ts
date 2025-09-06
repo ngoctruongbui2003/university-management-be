@@ -325,6 +325,7 @@ export class ClassroomService {
         if (updateDto.start_date !== undefined) classroom.start_date = new Date(updateDto.start_date);
         if (updateDto.end_date !== undefined) classroom.end_date = new Date(updateDto.end_date);
         if (updateDto.is_active !== undefined) classroom.is_active = updateDto.is_active;
+        if (updateDto.allow_grade_editing !== undefined) classroom.allow_grade_editing = updateDto.allow_grade_editing;
 
         // Save classroom changes
         const savedClassroom = await this.classroomRepository.save(classroom);
@@ -1159,6 +1160,7 @@ export class ClassroomService {
             class_code: classroom.class_code,
             invite_code: classroom.invite_code,
             is_active: classroom.is_active,
+            allow_grade_editing: classroom.allow_grade_editing,
             created_at: classroom.created_at,
             updated_at: classroom.updated_at,
             course: classroom.course ? {
@@ -1813,6 +1815,19 @@ export class ClassroomService {
         userId: number, 
         updateDto: UpdateClassroomStudentGradeDto
     ): Promise<ClassroomStudentGradeResponseDto> {
+        // Kiểm tra classroom có cho phép sửa điểm không
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId }
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        if (!classroom.allow_grade_editing) {
+            throw new ForbiddenException('Grade editing is not allowed for this classroom. Please contact admin to enable this feature.');
+        }
+
         // Kiểm tra học sinh có trong classroom không
         const studentMember = await this.memberRepository.findOne({
             where: {
@@ -2379,6 +2394,27 @@ export class ClassroomService {
             success: successCount,
             errors,
             imported_students: importedStudents
+        };
+    }
+
+    /**
+     * Toggle setting cho phép sửa điểm
+     */
+    async toggleGradeEditing(classroomId: number, allowGradeEditing: boolean): Promise<{ message: string; allow_grade_editing: boolean }> {
+        const classroom = await this.classroomRepository.findOne({
+            where: { id: classroomId }
+        });
+
+        if (!classroom) {
+            throw new NotFoundException('Classroom not found');
+        }
+
+        classroom.allow_grade_editing = allowGradeEditing;
+        await this.classroomRepository.save(classroom);
+
+        return {
+            message: `Grade editing has been ${allowGradeEditing ? 'enabled' : 'disabled'} for this classroom`,
+            allow_grade_editing: allowGradeEditing
         };
     }
 }

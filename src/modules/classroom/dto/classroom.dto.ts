@@ -49,6 +49,10 @@ export class CreateClassroomDto {
     is_active?: boolean = true;
 
     @IsOptional()
+    @IsBoolean()
+    allow_grade_editing?: boolean = false;
+
+    @IsOptional()
     @IsString()
     teacher_username?: string;
 }
@@ -86,6 +90,10 @@ export class UpdateClassroomDto {
     @IsOptional()
     @IsBoolean()
     is_active?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    allow_grade_editing?: boolean;
 
     @IsOptional()
     @IsArray()
@@ -149,6 +157,7 @@ export class ClassroomResponseDto {
     class_code: string;
     invite_code: string;
     is_active: boolean;
+    allow_grade_editing: boolean;
     created_at: Date;
     updated_at: Date;
     course?: {
@@ -210,4 +219,10 @@ export class FileUploadDto {
     @IsOptional()
     @IsArray()
     files?: Express.Multer.File[];
+}
+
+export class ToggleGradeEditingDto {
+    @IsNotEmpty()
+    @IsBoolean()
+    allow_grade_editing: boolean;
 }
