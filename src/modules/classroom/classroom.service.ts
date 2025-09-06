@@ -301,7 +301,7 @@ export class ClassroomService {
     async getClassroom(classroomId: number): Promise<Classroom> {
         return this.classroomRepository.findOne({
             where: { id: classroomId },
-            relations: ['schedules', 'subject', 'members', 'members.user']
+            relations: ['schedules', 'subject', 'members', 'members.user', 'subject.gradingFormula', 'subject.gradingFormula.gradeTypes']
         });
     }
 
@@ -509,7 +509,7 @@ export class ClassroomService {
 
     async getAllClassrooms() {
         const classrooms = await this.classroomRepository.find({
-            relations: ['subject']
+            relations: ['subject', 'subject.gradingFormula', 'subject.gradingFormula.gradeTypes']
         });
         return classrooms;
     }
@@ -645,7 +645,10 @@ export class ClassroomService {
         const classroom = await this.classroomRepository.findOne({
             where: { id: classroomId },
             relations: [
-                'schedules'
+                'schedules',
+                'subject',
+                'subject.gradingFormula',
+                'subject.gradingFormula.gradeTypes'
             ]
         });
         
