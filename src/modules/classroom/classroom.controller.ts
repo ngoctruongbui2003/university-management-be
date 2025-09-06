@@ -49,6 +49,11 @@ export class ClassroomController {
         return await this.classroomService.createClassroom(createDto);
     }
 
+    @Get()
+    async getAllClassrooms() {
+        return await this.classroomService.getAllClassrooms();
+    }
+
     /**
      * Lấy danh sách classrooms của user
      * GET /classrooms/my-classrooms

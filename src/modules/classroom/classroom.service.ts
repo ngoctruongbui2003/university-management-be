@@ -265,6 +265,13 @@ export class ClassroomService {
         return this.classroomRepository.save(classroom);
     }
 
+    async getAllClassrooms() {
+        const classrooms = await this.classroomRepository.find({
+            relations: ['subject']
+        });
+        return classrooms;
+    }
+
     /**
      * Lấy danh sách classroom của user
      */
