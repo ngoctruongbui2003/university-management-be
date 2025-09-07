@@ -4,6 +4,7 @@ import { Repository, DataSource, In } from 'typeorm';
 import {
     RegisterForSubjectDto,
     BatchRegisterSubjectsDto,
+    BatchRegisterUsersDto,
     UpdateRegistrationStatusDto,
     GetRegistrationHistoryDto,
     GetStudentSubjectsBySemesterDto,
@@ -179,6 +180,148 @@ export class StudentCourseRegistrationService {
             });
 
             return finalRegistrations;
+
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            throw error;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+    async batchRegisterUsersForSubjects(batchRegisterUsersDto: BatchRegisterUsersDto): Promise<StudentCourseRegistration[]> {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            // Validate all users exist and have STUDENT role
+            const users = await this.userRepository.find({
+                where: { 
+                    id: In(batchRegisterUsersDto.user_ids), 
+                    role: UserRole.STUDENT 
+                },
+            });
+
+            if (users.length !== batchRegisterUsersDto.user_ids.length) {
+                const foundUserIds = users.map(u => u.id);
+                const missingUserIds = batchRegisterUsersDto.user_ids.filter(id => !foundUserIds.includes(id));
+                throw new NotFoundException(`Student users with IDs ${missingUserIds.join(', ')} not found`);
+            }
+
+            // Validate course registration subject exists
+            const courseRegistrationSubject = await this.courseRegistrationSubjectRepository.findOne({
+                where: { id: batchRegisterUsersDto.course_registration_subject_id },
+                relations: ['subject', 'courseRegistration'],
+            });
+
+            if (!courseRegistrationSubject) {
+                throw new NotFoundException(`Course registration subject with ID ${batchRegisterUsersDto.course_registration_subject_id} not found`);
+            }
+
+            // Check if course registration is open
+            const courseRegistration = courseRegistrationSubject.courseRegistration;
+            if (courseRegistration.status !== CourseRegistrationStatus.OPEN) {
+                throw new BadRequestException('Course registration is closed');
+            }
+
+            // Check registration period
+            const now = new Date();
+            if (now < courseRegistration.start_date) {
+                throw new BadRequestException('Registration has not started yet');
+            }
+            if (now > courseRegistration.end_date) {
+                throw new BadRequestException('Registration deadline has passed');
+            }
+
+            // Get existing registrations for these users in this subject
+            const existingRegistrations = await this.studentCourseRegistrationRepository.find({
+                where: {
+                    user_id: In(batchRegisterUsersDto.user_ids),
+                    course_registration_subject_id: batchRegisterUsersDto.course_registration_subject_id,
+                    status: In([StudentRegistrationStatus.PENDING, StudentRegistrationStatus.APPROVED]),
+                },
+            });
+
+            // Get IDs of users who are already registered
+            const alreadyRegisteredUserIds = new Set(existingRegistrations.map(reg => reg.user_id));
+
+            // Filter out users who are already registered
+            const usersToRegister = batchRegisterUsersDto.user_ids.filter(userId => 
+                !alreadyRegisteredUserIds.has(userId)
+            );
+
+            if (usersToRegister.length === 0) {
+                // All users are already registered
+                const allRegistrations = await this.studentCourseRegistrationRepository.find({
+                    where: {
+                        user_id: In(batchRegisterUsersDto.user_ids),
+                        course_registration_subject_id: batchRegisterUsersDto.course_registration_subject_id,
+                        status: In([StudentRegistrationStatus.PENDING, StudentRegistrationStatus.APPROVED]),
+                    },
+                    relations: [
+                        'user',
+                        'courseRegistrationSubject',
+                        'courseRegistrationSubject.subject',
+                        'courseRegistrationSubject.courseRegistration',
+                        'courseRegistrationSubject.courseRegistration.semester',
+                        'courseRegistrationSubject.courseRegistrationSchedules',
+                    ],
+                });
+                return allRegistrations;
+            }
+
+            // Check capacity
+            const currentRegistrations = await this.studentCourseRegistrationRepository.count({
+                where: {
+                    course_registration_subject_id: batchRegisterUsersDto.course_registration_subject_id,
+                    status: In([StudentRegistrationStatus.PENDING, StudentRegistrationStatus.APPROVED]),
+                },
+            });
+
+            const availableSlots = courseRegistrationSubject.max_student - currentRegistrations;
+            if (usersToRegister.length > availableSlots) {
+                throw new ConflictException(
+                    `Subject "${courseRegistrationSubject.subject.name}" only has ${availableSlots} available slots, but trying to register ${usersToRegister.length} users`
+                );
+            }
+
+            // Create new registrations
+            const newRegistrations = usersToRegister.map(userId => 
+                queryRunner.manager.create(StudentCourseRegistration, {
+                    user_id: userId,
+                    course_registration_subject_id: batchRegisterUsersDto.course_registration_subject_id,
+                    status: StudentRegistrationStatus.APPROVED,
+                    registered_at: new Date(),
+                    notes: batchRegisterUsersDto.notes,
+                })
+            );
+
+            // Save all new registrations
+            if (newRegistrations.length > 0) {
+                await queryRunner.manager.save(StudentCourseRegistration, newRegistrations);
+            }
+
+            await queryRunner.commitTransaction();
+
+            // Return all registrations for these users in this subject
+            const allRegistrations = await this.studentCourseRegistrationRepository.find({
+                where: {
+                    user_id: In(batchRegisterUsersDto.user_ids),
+                    course_registration_subject_id: batchRegisterUsersDto.course_registration_subject_id,
+                    status: In([StudentRegistrationStatus.PENDING, StudentRegistrationStatus.APPROVED]),
+                },
+                relations: [
+                    'user',
+                    'courseRegistrationSubject',
+                    'courseRegistrationSubject.subject',
+                    'courseRegistrationSubject.courseRegistration',
+                    'courseRegistrationSubject.courseRegistration.semester',
+                    'courseRegistrationSubject.courseRegistrationSchedules',
+                ],
+            });
+
+            return allRegistrations;
 
         } catch (error) {
             await queryRunner.rollbackTransaction();

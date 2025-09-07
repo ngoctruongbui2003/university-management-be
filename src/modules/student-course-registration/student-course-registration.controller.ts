@@ -16,6 +16,7 @@ import { StudentCourseRegistrationService } from './student-course-registration.
 import {
     RegisterForSubjectDto,
     BatchRegisterSubjectsDto,
+    BatchRegisterUsersDto,
     UpdateRegistrationStatusDto,
     GetRegistrationHistoryDto,
     GetStudentSubjectsBySemesterDto,
@@ -94,6 +95,19 @@ export class StudentCourseRegistrationController {
         @Param('id', ParseIntPipe) courseRegistrationId?: number,
     ) {
         return await this.studentCourseRegistrationService.getAllRegistrations(courseRegistrationId);
+    }
+
+    /**
+     * Admin batch register multiple users for subjects
+     * POST /student-course-registration/admin/batch-register-users
+     */
+    @Post('admin/register-users')
+    @HttpCode(HttpStatus.CREATED)
+    async batchRegisterUsers(
+        @Body() batchRegisterUsersDto: BatchRegisterUsersDto,
+        @Request() req,
+    ) {
+        return await this.studentCourseRegistrationService.batchRegisterUsersForSubjects(batchRegisterUsersDto);
     }
 
     /**

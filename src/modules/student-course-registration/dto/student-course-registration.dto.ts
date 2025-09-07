@@ -13,6 +13,21 @@ export class BatchRegisterSubjectsDto {
     notes?: string;
 }
 
+export class BatchRegisterUsersDto {
+    @IsNotEmpty()
+    @IsArray()
+    @IsNumber({}, { each: true })
+    user_ids: number[];
+
+    @IsNotEmpty()
+    @IsNumber()
+    course_registration_subject_id: number;
+
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}
+
 export class RegisterForSubjectDto {
     @IsNotEmpty()
     @IsNumber()
