@@ -1777,6 +1777,7 @@ export class ClassroomService {
                     qt2Grade: null,
                     midtermGrade: null,
                     finalGrade: null,
+                    reason: null,
                     createdAt: null,
                     updatedAt: null,
                     user: {
@@ -1795,6 +1796,7 @@ export class ClassroomService {
                     qt2Grade: grade.qt2Grade,
                     midtermGrade: grade.midtermGrade,
                     finalGrade: grade.finalGrade,
+                    reason: grade.reason,
                     createdAt: grade.createdAt,
                     updatedAt: grade.updatedAt,
                     user: {
@@ -1827,10 +1829,6 @@ export class ClassroomService {
             throw new NotFoundException('Classroom not found');
         }
 
-        if (!classroom.allow_grade_editing) {
-            throw new ForbiddenException('Grade editing is not allowed for this classroom. Please contact admin to enable this feature.');
-        }
-
         // Kiểm tra học sinh có trong classroom không
         const studentMember = await this.memberRepository.findOne({
             where: {
@@ -1861,7 +1859,8 @@ export class ClassroomService {
                 qt1Grade: updateDto.qt1Grade,
                 qt2Grade: updateDto.qt2Grade,
                 midtermGrade: updateDto.midtermGrade,
-                finalGrade: updateDto.finalGrade
+                finalGrade: updateDto.finalGrade,
+                reason: updateDto.reason
             });
         } else {
             // Cập nhật nếu đã có
@@ -1869,6 +1868,7 @@ export class ClassroomService {
             if (updateDto.qt2Grade !== undefined) grade.qt2Grade = updateDto.qt2Grade;
             if (updateDto.midtermGrade !== undefined) grade.midtermGrade = updateDto.midtermGrade;
             if (updateDto.finalGrade !== undefined) grade.finalGrade = updateDto.finalGrade;
+            if (updateDto.reason !== undefined) grade.reason = updateDto.reason;
         }
 
         const savedGrade = await this.gradeRepository.save(grade);
@@ -1886,6 +1886,7 @@ export class ClassroomService {
             qt2Grade: savedGrade.qt2Grade,
             midtermGrade: savedGrade.midtermGrade,
             finalGrade: savedGrade.finalGrade,
+            reason: savedGrade.reason,
             createdAt: savedGrade.createdAt,
             updatedAt: savedGrade.updatedAt,
             user: {

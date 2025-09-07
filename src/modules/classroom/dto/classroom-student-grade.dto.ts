@@ -1,4 +1,4 @@
-import { IsOptional, IsNumber, IsPositive, Min, Max } from 'class-validator';
+import { IsOptional, IsNumber, IsPositive, Min, Max, IsString } from 'class-validator';
 
 export class CreateClassroomStudentGradeDto {
     @IsNumber()
@@ -56,6 +56,10 @@ export class UpdateClassroomStudentGradeDto {
     @Min(0)
     @Max(10)
     finalGrade?: number;
+
+    @IsOptional()
+    @IsString()
+    reason?: string;
 }
 
 export class ClassroomStudentGradeResponseDto {
@@ -66,6 +70,7 @@ export class ClassroomStudentGradeResponseDto {
     qt2Grade?: number;
     midtermGrade?: number;
     finalGrade?: number;
+    reason?: string;
     createdAt: Date;
     updatedAt: Date;
     user?: {

@@ -24,6 +24,9 @@ export class ClassroomStudentGrade {
     @Column({ name: 'final_grade', type: 'decimal', precision: 5, scale: 2, nullable: true })
     finalGrade: number;
 
+    @Column({ name: 'reason', type: 'text', nullable: true })
+    reason: string;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 
