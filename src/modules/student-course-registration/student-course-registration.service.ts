@@ -759,7 +759,10 @@ export class StudentCourseRegistrationService {
 
     async getAllRegistrations(courseRegistrationId?: number) {
         const registrations = await this.studentCourseRegistrationRepository.find({
-            where: { course_registration_subject_id: courseRegistrationId },
+            where: {
+                course_registration_subject_id: courseRegistrationId,
+                status: In([StudentRegistrationStatus.APPROVED])
+            },
             order: { created_at: 'DESC' },
             relations: [
                 'user',
@@ -767,5 +770,25 @@ export class StudentCourseRegistrationService {
             select: ['user']
         });
         return registrations.map(registration => registration.user);
+    }
+
+    async getAllUnregistrations(courseRegistrationId?: number) {
+        const registrations = await this.studentCourseRegistrationRepository.find({
+            where: {
+                course_registration_subject_id: courseRegistrationId,
+                status: In([StudentRegistrationStatus.CANCELLED])
+            },
+            order: { created_at: 'DESC' },
+            relations: [
+                'user',
+            ],
+        });
+
+        return registrations.map(registration => {
+            return {
+                user: registration.user,
+                rejection_reason: registration.rejection_reason,
+            };
+        });
     }
 }

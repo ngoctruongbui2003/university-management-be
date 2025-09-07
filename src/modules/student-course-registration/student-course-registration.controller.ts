@@ -98,6 +98,13 @@ export class StudentCourseRegistrationController {
         return await this.studentCourseRegistrationService.getAllRegistrations(courseRegistrationId);
     }
 
+    @Get('admin/:id/unregistrations')
+    async getAllUnregistrations(
+        @Param('id', ParseIntPipe) courseRegistrationId?: number,
+    ) {
+        return await this.studentCourseRegistrationService.getAllUnregistrations(courseRegistrationId);
+    }
+
     /**
      * Admin batch register multiple users for subjects
      * POST /student-course-registration/admin/batch-register-users
