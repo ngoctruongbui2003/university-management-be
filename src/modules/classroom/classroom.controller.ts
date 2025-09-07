@@ -32,6 +32,7 @@ import {
 import { AddClassroomMemberDto } from './dto/classroom-member.dto';
 import { ImportStudentResponseDto } from './dto/import-student.dto';
 import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
+import { CreateStudentSubmissionDto } from './dto/classroom-section-student.dto';
 import { UpdateClassroomStudentGradeDto } from './dto/classroom-student-grade.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -373,5 +374,71 @@ export class ClassroomController {
         @Body() toggleDto: ToggleGradeEditingDto
     ) {
         return await this.classroomService.toggleGradeEditing(classroomId, toggleDto.allow_grade_editing);
+    }
+
+    // ================= CLASSROOM SECTION STUDENT ENDPOINTS =================
+
+    /**
+     * Submit assignment for a classroom section
+     * POST /classrooms/:id/sections/:sectionId/submit
+     */
+    @Post(':id/sections/:sectionId/submit')
+    @UseInterceptors(FileInterceptor('file'))
+    @ApiBearerAuth('access-token')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.CREATED)
+    async submitAssignment(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Param('sectionId', ParseIntPipe) sectionId: number,
+        @UploadedFile() file: Express.Multer.File,
+        @Request() req
+    ) {
+        const userId = req.user.userId;
+        return await this.classroomService.submitAssignment(classroomId, sectionId, userId, file);
+    }
+
+    /**
+     * Get list of students with submission status
+     * GET /classrooms/:id/sections/:sectionId/submissions
+     */
+    @Get(':id/sections/:sectionId/submissions')
+    @ApiBearerAuth('access-token')
+    @UseGuards(JwtAuthGuard)
+    async getStudentSubmissions(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Param('sectionId', ParseIntPipe) sectionId: number
+    ) {
+        return await this.classroomService.getStudentSubmissions(classroomId, sectionId);
+    }
+
+    /**
+     * Download all submissions as ZIP
+     * GET /classrooms/:id/sections/:sectionId/download-all
+     */
+    @Get(':id/sections/:sectionId/download-all')
+    @ApiBearerAuth('access-token')
+    @UseGuards(JwtAuthGuard)
+    async downloadAllSubmissions(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Param('sectionId', ParseIntPipe) sectionId: number,
+        @Res() res: Response
+    ) {
+        return await this.classroomService.downloadAllSubmissions(classroomId, sectionId, res);
+    }
+
+    /**
+     * Download individual student submission file
+     * GET /classrooms/:id/sections/:sectionId/submissions/:submissionId/download?fileIndex=0
+     */
+    @Get(':id/sections/:sectionId/submissions/:submissionId/download')
+    @ApiBearerAuth('access-token')
+    @UseGuards(JwtAuthGuard)
+    async downloadStudentSubmission(
+        @Param('id', ParseIntPipe) classroomId: number,
+        @Param('sectionId', ParseIntPipe) sectionId: number,
+        @Param('submissionId', ParseIntPipe) submissionId: number,
+        @Res() res: Response
+    ) {
+        return await this.classroomService.downloadStudentSubmission(classroomId, sectionId, submissionId, res, 0);
     }
 }

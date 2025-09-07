@@ -32,9 +32,13 @@ import { Classes } from 'src/entities/classes.entity';
 import { Subject } from 'src/entities/subject.entity';
 import { CreateClassroomSectionDto } from './dto/classroom-section.dto';
 import { ClassroomSection } from 'src/entities/classsroom-section.entity';
+import { ClassroomSectionStudent } from 'src/entities/classroom-section-student.entity';
+import { CreateStudentSubmissionDto, UpdateStudentSubmissionDto, StudentSubmissionResponseDto, StudentSubmissionListDto } from './dto/classroom-section-student.dto';
 import { UserRole } from 'src/shared/constants/enum';
 import { Student } from 'src/entities/student.entity';
 import { Faculty } from 'src/entities/faculty.entity';
+import * as archiver from 'archiver';
+import { Response } from 'express';
 
 @Injectable()
 export class ClassroomService {
@@ -68,6 +72,9 @@ export class ClassroomService {
 
         @InjectRepository(ClassroomSection)
         private classroomSectionRepository: Repository<ClassroomSection>,
+
+        @InjectRepository(ClassroomSectionStudent)
+        private classroomSectionStudentRepository: Repository<ClassroomSectionStudent>,
 
         @InjectRepository(Student)
         private studentRepository: Repository<Student>,
@@ -2420,5 +2427,307 @@ export class ClassroomService {
             message: `Grade editing has been ${allowGradeEditing ? 'enabled' : 'disabled'} for this classroom`,
             allow_grade_editing: allowGradeEditing
         };
+    }
+
+    // ================= CLASSROOM SECTION STUDENT METHODS =================
+
+    /**
+     * Submit assignment for a classroom section
+     * POST /classrooms/:classroomId/sections/:sectionId/submit
+     */
+    async submitAssignment(
+        classroomId: number,
+        sectionId: number,
+        userId: number,
+        file?: Express.Multer.File
+    ): Promise<StudentSubmissionResponseDto> {
+        // Verify classroom section exists
+        const section = await this.classroomSectionRepository.findOne({
+            where: { id: sectionId, classroomId: classroomId }
+        });
+
+        if (!section) {
+            throw new NotFoundException('Classroom section not found');
+        }
+
+        // Check if user is a member of the classroom
+        const member = await this.memberRepository.findOne({
+            where: { classroom_id: classroomId, user_id: userId }
+        });
+
+        if (!member) {
+            throw new ForbiddenException('You are not a member of this classroom');
+        }
+
+        // Handle file upload
+        let fileData;
+        if (file) {
+            const subfolder = this.fileUploadService.getClassroomFolder(classroomId);
+            const uploadResult = await this.fileUploadService.uploadFile(
+                file.buffer,
+                file.originalname,
+                file.mimetype,
+                subfolder
+            );
+            fileData = JSON.stringify([{
+                filename: uploadResult.filename,
+                original_name: file.originalname,
+                file_url: uploadResult.file_url,
+                file_size: file.size,
+                mime_type: file.mimetype,
+                uploaded_at: new Date().toISOString(),
+                object_name: uploadResult.object_name
+            }]);
+        }
+
+        // Check if submission already exists
+        let submission = await this.classroomSectionStudentRepository.findOne({
+            where: { classroomSectionId: sectionId, userId: userId }
+        });
+
+        if (submission) {
+            // Update existing submission
+            submission.submittedAt = new Date();
+            submission.files = fileData;
+            submission = await this.classroomSectionStudentRepository.save(submission);
+        } else {
+            // Create new submission
+            submission = this.classroomSectionStudentRepository.create({
+                classroomSectionId: sectionId,
+                userId: userId,
+                submittedAt: new Date(),
+                files: fileData
+            });
+            submission = await this.classroomSectionStudentRepository.save(submission);
+        }
+
+        // Load user data for response
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            select: ['id', 'username', 'full_name', 'email']
+        });
+
+        return {
+            id: submission.id,
+            classroomSectionId: submission.classroomSectionId,
+            userId: submission.userId,
+            submittedAt: submission.submittedAt,
+            files: submission.files,
+            createdAt: submission.createdAt,
+            updatedAt: submission.updatedAt,
+            user: user
+        };
+    }
+
+    /**
+     * Get list of students with submission status
+     * GET /classrooms/:classroomId/sections/:sectionId/submissions
+     */
+    async getStudentSubmissions(
+        classroomId: number,
+        sectionId: number
+    ): Promise<StudentSubmissionListDto[]> {
+        // Verify classroom section exists
+        const section = await this.classroomSectionRepository.findOne({
+            where: { id: sectionId, classroomId: classroomId }
+        });
+
+        if (!section) {
+            throw new NotFoundException('Classroom section not found');
+        }
+
+        // Get all classroom members (students)
+        const members = await this.memberRepository.find({
+            where: { 
+                classroom_id: classroomId, 
+                role: ClassroomRole.STUDENT,
+                is_active: true 
+            },
+            relations: ['user']
+        });
+
+        // Get all submissions for this section
+        const submissions = await this.classroomSectionStudentRepository.find({
+            where: { classroomSectionId: sectionId }
+        });
+
+        // Create submission map for quick lookup
+        const submissionMap = new Map();
+        submissions.forEach(submission => {
+            submissionMap.set(submission.userId, submission);
+        });
+
+        // Build response
+        const result: StudentSubmissionListDto[] = members.map(member => {
+            const submission = submissionMap.get(member.user_id);
+            let files = null;
+            
+            // Parse file information if submission exists and has files
+            if (submission && submission.files) {
+                try {
+                    files = JSON.parse(submission.files);
+                } catch (error) {
+                    console.error(`Error parsing files for submission ${submission.id}:`, error);
+                    files = null;
+                }
+            }
+            
+            return {
+                id: member.user.id,
+                username: member.user.username,
+                full_name: member.user.full_name,
+                email: member.user.email,
+                hasSubmitted: !!submission,
+                submittedAt: submission?.submittedAt,
+                submissionId: submission?.id,
+                files: files
+            };
+        });
+
+        return result;
+    }
+
+    /**
+     * Download all submissions as ZIP
+     * GET /classrooms/:classroomId/sections/:sectionId/download-all
+     */
+    async downloadAllSubmissions(
+        classroomId: number,
+        sectionId: number,
+        res: Response
+    ): Promise<void> {
+        // Verify classroom section exists
+        const section = await this.classroomSectionRepository.findOne({
+            where: { id: sectionId, classroomId: classroomId }
+        });
+
+        if (!section) {
+            throw new NotFoundException('Classroom section not found');
+        }
+
+        // Get all submissions with user data
+        const submissions = await this.classroomSectionStudentRepository.find({
+            where: { classroomSectionId: sectionId },
+            relations: ['user']
+        });
+
+        if (submissions.length === 0) {
+            throw new NotFoundException('No submissions found');
+        }
+
+        // Create ZIP archive
+        const archive = archiver('zip', {
+            zlib: { level: 9 } // Compression level
+        });
+
+        // Set response headers
+        res.set({
+            'Content-Type': 'application/zip',
+            'Content-Disposition': `attachment; filename=submissions_section_${sectionId}.zip`
+        });
+
+        // Pipe archive to response
+        archive.pipe(res);
+
+        // Add files to archive
+        for (const submission of submissions) {
+            if (submission.files) {
+                try {
+                    const files = JSON.parse(submission.files);
+                    if (Array.isArray(files)) {
+                        for (const fileInfo of files) {
+                            // Download file from MinIO and add to archive
+                            try {
+                                // Use object_name if available, fallback to filename for backward compatibility
+                                const objectName = fileInfo.object_name || fileInfo.filename;
+                                const fileStream = await this.fileUploadService.getFileStream(objectName);
+                                const fileName = `${submission.user.username}_${fileInfo.original_name}`;
+                                archive.append(fileStream, { name: fileName });
+                            } catch (error) {
+                                const errorObjectName = fileInfo.object_name || fileInfo.filename;
+                                console.error(`Error adding file ${errorObjectName} to archive:`, error);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error parsing files for submission ${submission.id}:`, error);
+                }
+            }
+        }
+
+        // Finalize archive
+        await archive.finalize();
+    }
+
+    /**
+     * Download individual student submission file
+     * GET /classrooms/:classroomId/sections/:sectionId/submissions/:submissionId/download?fileIndex=0
+     */
+    async downloadStudentSubmission(
+        classroomId: number,
+        sectionId: number,
+        submissionId: number,
+        res: Response,
+        fileIndex: number = 0
+    ): Promise<void> {
+        // Verify classroom section exists
+        const section = await this.classroomSectionRepository.findOne({
+            where: { id: sectionId, classroomId: classroomId }
+        });
+
+        if (!section) {
+            throw new NotFoundException('Classroom section not found');
+        }
+
+        // Get the specific submission
+        const submission = await this.classroomSectionStudentRepository.findOne({
+            where: { 
+                id: submissionId, 
+                classroomSectionId: sectionId 
+            },
+            relations: ['user']
+        });
+
+        if (!submission) {
+            throw new NotFoundException('Submission not found');
+        }
+
+        if (!submission.files) {
+            throw new NotFoundException('No files found in this submission');
+        }
+
+        let files;
+        try {
+            files = JSON.parse(submission.files);
+        } catch (error) {
+            throw new BadRequestException('Invalid file data in submission');
+        }
+
+        if (!Array.isArray(files) || files.length === 0) {
+            throw new NotFoundException('No files found in this submission');
+        }
+
+        // Validate file index
+        if (fileIndex < 0 || fileIndex >= files.length) {
+            throw new BadRequestException(`File index ${fileIndex} is out of range. This submission has ${files.length} file(s).`);
+        }
+
+        // Download the specified file directly (no ZIP)
+        const fileInfo = files[fileIndex];
+        try {
+            // Use object_name if available, fallback to filename for backward compatibility
+            const objectName = fileInfo.object_name || fileInfo.filename;
+            const fileStream = await this.fileUploadService.getFileStream(objectName);
+            
+            res.set({
+                'Content-Type': fileInfo.mime_type || 'application/octet-stream',
+                'Content-Disposition': `attachment; filename="${fileInfo.original_name}"`,
+            });
+            
+            fileStream.pipe(res);
+            return;
+        } catch (error) {
+            throw new NotFoundException('File not found in storage');
+        }
     }
 }

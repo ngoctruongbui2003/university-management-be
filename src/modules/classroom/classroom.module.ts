@@ -12,6 +12,7 @@ import { User } from '../../entities/user.entity';
 import { FileUploadModule } from '../file-upload/file-upload.module';
 import { Subject } from 'src/entities/subject.entity';
 import { ClassroomSection } from 'src/entities/classsroom-section.entity';
+import { ClassroomSectionStudent } from 'src/entities/classroom-section-student.entity';
 import { ClassroomStudentGrade } from 'src/entities/classroom-student-grade.entity';
 import { Student } from 'src/entities/student.entity';
 import { Faculty } from 'src/entities/faculty.entity';
@@ -27,6 +28,7 @@ import { Faculty } from 'src/entities/faculty.entity';
       User,
       Subject,
       ClassroomSection,
+      ClassroomSectionStudent,
       ClassroomStudentGrade,
       Student,
       Faculty
