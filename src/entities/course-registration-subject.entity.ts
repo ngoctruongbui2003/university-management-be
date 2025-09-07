@@ -3,6 +3,7 @@ import { CourseRegistration } from './course-registration.entity';
 import { Subject } from './subject.entity';
 import { Semester } from './semester.entity';
 import { CourseRegistrationSchedule } from './course-registration-schedule.entity';
+import { StudentCourseRegistration } from './student-course-registration.entity';
 
 @Entity('course_registration_subjects')
 export class CourseRegistrationSubject {
@@ -56,4 +57,7 @@ export class CourseRegistrationSubject {
         onDelete: 'CASCADE'
     })
     courseRegistrationSchedules: CourseRegistrationSchedule[];
+
+    @OneToMany(() => StudentCourseRegistration, studentCourseRegistration => studentCourseRegistration.courseRegistrationSubject)
+    studentCourseRegistrations: StudentCourseRegistration[];
 }

@@ -77,6 +77,7 @@ export class CourseRegistrationManagementService {
                 'courseRegistrationSubjects',
                 'courseRegistrationSubjects.subject',
                 'courseRegistrationSubjects.courseRegistrationSchedules',
+                'courseRegistrationSubjects.studentCourseRegistrations',
             ],
         });
 

@@ -37,3 +37,10 @@ export enum CourseRegistrationStatus {
     OPEN = 'Open',
     CLOSED = 'Closed'
 }
+
+export enum StudentRegistrationStatus {
+    PENDING = 'Pending',
+    APPROVED = 'Approved',
+    REJECTED = 'Rejected',
+    CANCELLED = 'Cancelled'
+}
