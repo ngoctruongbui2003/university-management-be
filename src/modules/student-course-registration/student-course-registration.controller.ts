@@ -17,6 +17,7 @@ import {
     RegisterForSubjectDto,
     BatchRegisterSubjectsDto,
     BatchRegisterUsersDto,
+    BatchUnregisterUsersDto,
     UpdateRegistrationStatusDto,
     GetRegistrationHistoryDto,
     GetStudentSubjectsBySemesterDto,
@@ -108,6 +109,18 @@ export class StudentCourseRegistrationController {
         @Request() req,
     ) {
         return await this.studentCourseRegistrationService.batchRegisterUsersForSubjects(batchRegisterUsersDto);
+    }
+
+    /**
+     * Admin batch unregister multiple users from a subject
+     * POST /student-course-registration/admin/unregister-users
+     */
+    @Post('admin/unregister-users')
+    @HttpCode(HttpStatus.OK)
+    async batchUnregisterUsers(
+        @Body() batchUnregisterUsersDto: BatchUnregisterUsersDto,
+    ) {
+        return await this.studentCourseRegistrationService.batchUnregisterUsersFromSubject(batchUnregisterUsersDto);
     }
 
     /**

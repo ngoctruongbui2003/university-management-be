@@ -5,6 +5,7 @@ import {
     RegisterForSubjectDto,
     BatchRegisterSubjectsDto,
     BatchRegisterUsersDto,
+    BatchUnregisterUsersDto,
     UpdateRegistrationStatusDto,
     GetRegistrationHistoryDto,
     GetStudentSubjectsBySemesterDto,
@@ -322,6 +323,89 @@ export class StudentCourseRegistrationService {
             });
 
             return allRegistrations;
+
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            throw error;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+    async batchUnregisterUsersFromSubject(batchUnregisterUsersDto: BatchUnregisterUsersDto): Promise<{ message: string; unregistered_count: number; details: any[] }> {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            // Validate all users exist and have STUDENT role
+            const users = await this.userRepository.find({
+                where: { 
+                    id: In(batchUnregisterUsersDto.user_ids), 
+                    role: UserRole.STUDENT 
+                },
+            });
+
+            if (users.length !== batchUnregisterUsersDto.user_ids.length) {
+                const foundUserIds = users.map(u => u.id);
+                const missingUserIds = batchUnregisterUsersDto.user_ids.filter(id => !foundUserIds.includes(id));
+                throw new NotFoundException(`Student users with IDs ${missingUserIds.join(', ')} not found`);
+            }
+
+            // Validate course registration subject exists
+            const courseRegistrationSubject = await this.courseRegistrationSubjectRepository.findOne({
+                where: { id: batchUnregisterUsersDto.course_registration_subject_id },
+                relations: ['subject', 'courseRegistration'],
+            });
+
+            if (!courseRegistrationSubject) {
+                throw new NotFoundException(`Course registration subject with ID ${batchUnregisterUsersDto.course_registration_subject_id} not found`);
+            }
+
+            // Get existing registrations for these users in this subject
+            const existingRegistrations = await this.studentCourseRegistrationRepository.find({
+                where: {
+                    user_id: In(batchUnregisterUsersDto.user_ids),
+                    course_registration_subject_id: batchUnregisterUsersDto.course_registration_subject_id,
+                    status: In([StudentRegistrationStatus.PENDING, StudentRegistrationStatus.APPROVED]),
+                },
+                relations: ['user'],
+            });
+
+            if (existingRegistrations.length === 0) {
+                return {
+                    message: 'No active registrations found for the specified users in this subject',
+                    unregistered_count: 0,
+                    details: []
+                };
+            }
+
+            // Update registrations to CANCELLED status
+            const unregistrationDetails = [];
+            for (const registration of existingRegistrations) {
+                registration.status = StudentRegistrationStatus.CANCELLED;
+                registration.rejection_reason = batchUnregisterUsersDto.reason || 'Batch unregistration by admin';
+                registration.updated_at = new Date();
+                
+                await queryRunner.manager.save(StudentCourseRegistration, registration);
+                
+                unregistrationDetails.push({
+                    user_id: registration.user_id,
+                    user_name: registration.user?.full_name || 'Unknown',
+                    registration_id: registration.id,
+                    previous_status: StudentRegistrationStatus.APPROVED,
+                    new_status: StudentRegistrationStatus.CANCELLED,
+                    reason: registration.rejection_reason
+                });
+            }
+
+            await queryRunner.commitTransaction();
+
+            return {
+                message: `Successfully unregistered ${existingRegistrations.length} users from subject "${courseRegistrationSubject.subject.name}"`,
+                unregistered_count: existingRegistrations.length,
+                details: unregistrationDetails
+            };
 
         } catch (error) {
             await queryRunner.rollbackTransaction();

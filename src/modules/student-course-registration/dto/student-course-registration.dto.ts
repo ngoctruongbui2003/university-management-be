@@ -28,6 +28,21 @@ export class BatchRegisterUsersDto {
     notes?: string;
 }
 
+export class BatchUnregisterUsersDto {
+    @IsNotEmpty()
+    @IsArray()
+    @IsNumber({}, { each: true })
+    user_ids: number[];
+
+    @IsNotEmpty()
+    @IsNumber()
+    course_registration_subject_id: number;
+
+    @IsOptional()
+    @IsString()
+    reason?: string;
+}
+
 export class RegisterForSubjectDto {
     @IsNotEmpty()
     @IsNumber()
